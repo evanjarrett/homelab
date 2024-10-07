@@ -1,7 +1,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
 metadata:
-  name: cert-manager
+  name: cert-manager-helmrepo
   namespace: flux-system
 spec:
   url: https://charts.jetstack.io
@@ -10,7 +10,7 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
 metadata:
-  name: metallb
+  name: metallb-helmrepo
   namespace: flux-system
 spec:
   url: https://metallb.github.io/metallb
