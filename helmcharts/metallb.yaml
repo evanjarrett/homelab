@@ -3,6 +3,10 @@ kind: HelmRelease
 metadata:
   name: metallb-helmrelease
   namespace: metallb
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
 spec:
   releaseName: metallb
   chart:
