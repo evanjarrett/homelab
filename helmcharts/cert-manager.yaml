@@ -10,7 +10,7 @@ spec:
       chart: cert-manager
       sourceRef:
         kind: HelmRepository
-        name: cert-manager
+        name: cert-manager-helmrepo
         namespace: flux-system
       version: v1.15.3
   interval: 5m0s
