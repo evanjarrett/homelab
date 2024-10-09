@@ -1,34 +1,16 @@
----
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: helmcharts
-  namespace: flux-system
-spec:
-  interval: 10m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./helmcharts
-  prune: true
-  wait: true
-  timeout: 5m0s
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: namespaces
+  name: kubernetes-sigs
   namespace: flux-system
 spec:
   interval: 10m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./namespaces
+  path: ./sigs
   prune: true
   wait: true
-  dependsOn:
-    - name: helmcharts
   timeout: 5m0s
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -46,4 +28,38 @@ spec:
   wait: true
   dependsOn:
     - name: kubernetes-sigs
+  timeout: 5m0s
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: helmcharts
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./helmcharts
+  prune: true
+  wait: true
+  dependsOn:
+    - name: kubernetes-sigs
+  timeout: 5m0s
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: namespaces
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./namespaces
+  prune: true
+  wait: true
+  dependsOn:
+    - name: helmcharts
   timeout: 5m0s
