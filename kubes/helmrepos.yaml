@@ -15,3 +15,12 @@ metadata:
 spec:
   url: https://metallb.github.io/metallb
   interval: 10m0s
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: sealed-secrets-helmrepo
+  namespace: flux-system
+spec:
+  url: https://bitnami-labs.github.io/sealed-secrets
+  interval: 10m0s
