@@ -1,5 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+metadata:
+  name: kubernetes-sigs
 resources:
   - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
   - https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.16.4
