@@ -6,8 +6,8 @@ metadata:
 spec:
   interval: 10m
   url: https://github.com/kubernetes-sigs/gateway-api.git
-ref:
-  tag: v1.2.0
+  ref:
+    tag: v1.2.0
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
@@ -30,8 +30,8 @@ metadata:
 spec:
   interval: 10m
   url: https://github.com/kubernetes-sigs/node-feature-discovery.git
-ref:
-  tag: v0.16.4
+  ref:
+    tag: v0.16.4
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
