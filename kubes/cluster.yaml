@@ -1,18 +1,50 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
-kind: Kustomization
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
 metadata:
-  name: kubernetes-sigs
+  name: gateway-api-repo
   namespace: flux-system
 spec:
   interval: 10m
+  url: https://github.com/kubernetes-sigs/gateway-api.git
+ref:
+  tag: v1.2.0
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: gateway-api-crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./config/crd/standard
   prune: true
   sourceRef:
     kind: GitRepository
-    name: my-repo
-  path: ./
-  resources:
-    - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
-    - https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.16.4
+    name: gateway-api-repo
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: node-feature-discovery-repo
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/kubernetes-sigs/node-feature-discovery.git
+ref:
+  tag: v0.16.4
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: node-feature-discovery-crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deployment/overlays/default
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: node-feature-discovery-repo
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -28,7 +60,8 @@ spec:
   prune: true
   wait: true
   dependsOn:
-    - name: kubernetes-sigs
+    - name: gateway-api-crds
+    - name: node-feature-discovery-crds
   timeout: 5m0s
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -45,7 +78,8 @@ spec:
   prune: true
   wait: true
   dependsOn:
-    - name: kubernetes-sigs
+    - name: gateway-api-crds
+    - name: node-feature-discovery-crds
   timeout: 5m0s
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
