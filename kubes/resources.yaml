@@ -1,0 +1,66 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml
+  - https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.16.4
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+ name: letsencrypt-staging
+spec:
+ acme:
+   email: evan@evanjarrett.com
+   # We use the staging server here for testing to avoid hitting
+   server: https://acme-staging-v02.api.letsencrypt.org/directory
+   privateKeySecretRef:
+     # if not existing, it will register a new account and stores it
+     name: letsencrypt-staging
+   solvers:
+     - dns01:
+         cloudflare:
+           apiTokenSecretRef:
+             name: cloudflare-api-token-secret
+             key: api-token
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: google-coral-ai
+spec:
+  rules:
+  - name: "google-coral-ai"
+    labels:
+      google-coral-ai: "true"
+    matchFeatures:
+    - feature: pci.device
+      matchExpressions:
+        device:
+          op: In
+          value:
+          - 089a
+        vendor:
+          op: In
+          value:
+          - 1ac1
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: rk3588
+spec:
+  rules:
+  - name: "rk3588"
+    labels:
+      rk3588: "true"
+    matchFeatures:
+    - feature: cpu.model
+      matchExpressions:
+        family:
+          op: In
+          value:
+          - "79"
+        id:
+          op: In
+          value:
+          - "53424"
