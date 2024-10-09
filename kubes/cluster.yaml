@@ -1,0 +1,100 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: gateway-api-repo
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/kubernetes-sigs/gateway-api.git
+ref:
+  tag: v1.2.0
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: gateway-api-crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./config/crd/standard
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: gateway-api-repo
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: node-feature-discovery-repo
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/kubernetes-sigs/node-feature-discovery.git
+ref:
+  tag: v0.16.4
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: node-feature-discovery-crds
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./deployment/overlays/default
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: node-feature-discovery-repo
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: resources
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./resources
+  prune: true
+  wait: true
+  dependsOn:
+    - name: gateway-api-crds
+    - name: node-feature-discovery-crds
+  timeout: 5m0s
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: helmcharts
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./helmcharts
+  prune: true
+  wait: true
+  dependsOn:
+    - name: gateway-api-crds
+    - name: node-feature-discovery-crds
+  timeout: 5m0s
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: namespaces
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./namespaces
+  prune: true
+  wait: true
+  dependsOn:
+    - name: helmcharts
+  timeout: 5m0s
