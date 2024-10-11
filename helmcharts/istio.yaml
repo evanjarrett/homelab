@@ -17,12 +17,12 @@ spec:
   releaseName: istio-base
   chart:
     spec:
-      chart: istio/base
+      chart: base
       sourceRef:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: v1.23.2
+      version: 1.23.2
   interval: 10m0s
   install:
     createNamespace: true
@@ -38,12 +38,12 @@ spec:
   releaseName: istio-ingress
   chart:
     spec:
-      chart: istio/gateway
+      chart: gateway
       sourceRef:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: v1.23.2
+      version: 1.23.2
   interval: 10m0s
   install:
     createNamespace: true
