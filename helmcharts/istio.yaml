@@ -32,6 +32,27 @@ spec:
 apiVersion: helm.toolkit.fluxcd.io/v2beta1
 kind: HelmRelease
 metadata:
+  name: istiod-helmrelease
+  namespace: istio-system
+spec:
+  releaseName: istiod
+  chart:
+    spec:
+      chart: istiod
+      sourceRef:
+        kind: HelmRepository
+        name: istio-helmrepo
+        namespace: flux-system
+      version: 1.23.2
+  interval: 5m
+  dependsOn:
+    - name: istio-helmrelease
+      namespace: istio-system
+
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
   name: istio-gateway-helmrelease
   namespace: istio-ingress
 spec:
@@ -45,6 +66,9 @@ spec:
         namespace: flux-system
       version: 1.23.2
   interval: 10m0s
+  dependsOn:
+    - name: istiod-helmrelease
+      namespace: istio-system
   install:
     createNamespace: true
   values:
