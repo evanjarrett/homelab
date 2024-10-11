@@ -24,3 +24,12 @@ metadata:
 spec:
   url: https://bitnami-labs.github.io/sealed-secrets
   interval: 10m0s
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: istio-helmrepo
+  namespace: flux-system
+spec:
+  url: https://istio-release.storage.googleapis.com/charts
+  interval: 10m0s

@@ -1,0 +1,41 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: istio-helmrelease
+  namespace: istio-system
+spec:
+  releaseName: istio-base
+  chart:
+    spec:
+      chart: istio/base
+      sourceRef:
+        kind: HelmRepository
+        name: istio-helmrepo
+        namespace: flux-system
+      version: v1.2.3
+  interval: 10m0s
+  install:
+    createNamespace: true
+  values:
+    installCRDs: true
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: istio-gateway-helmrelease
+  namespace: istio-ingress
+spec:
+  releaseName: istio-ingress
+  chart:
+    spec:
+      chart: istio/gateway
+      sourceRef:
+        kind: HelmRepository
+        name: istio-helmrepo
+        namespace: flux-system
+      version: v1.2.3
+  interval: 10m0s
+  install:
+    createNamespace: true
+  values:
+    installCRDs: true
