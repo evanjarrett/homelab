@@ -27,7 +27,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - whoami.j5t.io
+    - whoami.jarrett.tech
   rules:
     - backendRefs:
         - name: whoami
@@ -67,3 +67,7 @@ spec:
           ports:
             - name: web
               containerPort: 80
+          resources:
+            limits:
+              memory: "48Mi"
+              cpu: "100m"
