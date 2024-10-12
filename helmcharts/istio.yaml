@@ -44,7 +44,7 @@ spec:
         name: istio-helmrepo
         namespace: flux-system
       version: 1.23.2
-  interval: 5m
+  interval: 10m0s
   dependsOn:
     - name: istio-helmrelease
       namespace: istio-system
