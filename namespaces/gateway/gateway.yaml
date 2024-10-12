@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: gateway
 ---
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: jarrett-net
