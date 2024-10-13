@@ -15,11 +15,10 @@ metadata:
 spec:
   rules:
   - name: google-coral
+    labels:
+      coral.present: "true"
     labelsTemplate: |
-      {{ $index := 0 }}
-      {{ range .pci.device }}coral-apex-{{ $index }}.present=true
-      {{ $index = add $index 1 }}
-      {{ end }}
+      coral.count={{ .pci.device | len }}
     matchFeatures:
     - feature: pci.device
       matchExpressions:
