@@ -21,6 +21,8 @@ spec:
   interval: 2h
   install:
     createNamespace: true
+    remediation:
+      retries: 3
   values:
     installCRDs: true
     config:
