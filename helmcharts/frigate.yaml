@@ -153,10 +153,6 @@ data:
                 - record
           detect:
             enabled: True
-          record:
-            events:
-              required_zones:
-                - front_house
           snapshots:
             enabled: True
             required_zones:
