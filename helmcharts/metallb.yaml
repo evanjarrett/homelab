@@ -22,7 +22,7 @@ spec:
         name: metallb-helmrepo
         namespace: flux-system
       version: v0.14.8
-  interval: 10m0s
+  interval: 2h
   install:
     createNamespace: true
   values:
