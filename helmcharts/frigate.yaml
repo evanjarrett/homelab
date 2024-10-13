@@ -5,7 +5,9 @@ metadata:
 ---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: frigate
+metadata:
+  name: frigate-configmapgenerator
+  namespace: frigate
 configMapGenerator:
   - name: frigate-helmchart-values-override
     files:
