@@ -12,7 +12,7 @@ spec:
   releaseName: frigate
   chart:
     spec:
-      chart: gateway
+      chart: frigate
       sourceRef:
         kind: HelmRepository
         name: frigate-helmrepo

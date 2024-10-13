@@ -40,5 +40,14 @@ metadata:
   name: intel-helmrepo
   namespace: flux-system
 spec:
-  interval: 2h
   url: https://intel.github.io/helm-charts
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: frigate-helmrepo
+  namespace: flux-system
+spec:
+  url: https://blakeblackshear.github.io/blakeshome-charts
+  interval: 2h
