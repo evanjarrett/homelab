@@ -5,6 +5,7 @@ resources:
 - gotk-sync.yaml
 configMapGenerator:
   - name: frigate-helmchart-values-override
+    namespace: frigate
     files:
       - values.yaml=frigate-values.conf
 configurations:

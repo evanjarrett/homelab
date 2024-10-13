@@ -26,4 +26,5 @@ spec:
   valuesFrom:
   - kind: ConfigMap
     name: frigate-helmchart-values-override
+    namespace: frigate
     valuesKey: values.yaml
