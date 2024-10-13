@@ -60,7 +60,6 @@ spec:
     name: flux-system
   path: ./helmcharts
   prune: true
-  wait: true
   dependsOn:
     - name: gateway-api-crds
     - name: node-feature-discovery-crds
@@ -78,7 +77,6 @@ spec:
     name: flux-system
   path: ./namespaces
   prune: true
-  wait: true
   dependsOn:
     - name: helmcharts
   timeout: 5m0s
