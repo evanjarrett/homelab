@@ -1,4 +1,4 @@
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: cert-manager-helmrepo
@@ -7,7 +7,7 @@ spec:
   url: https://charts.jetstack.io
   interval: 2h
 ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: metallb-helmrepo
@@ -16,7 +16,7 @@ spec:
   url: https://metallb.github.io/metallb
   interval: 2h
 ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: sealed-secrets-helmrepo
@@ -25,7 +25,7 @@ spec:
   url: https://bitnami-labs.github.io/sealed-secrets
   interval: 2h
 ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: istio-helmrepo
@@ -34,7 +34,7 @@ spec:
   url: https://istio-release.storage.googleapis.com/charts
   interval: 2h
 ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: intel-helmrepo
@@ -43,7 +43,7 @@ spec:
   url: https://intel.github.io/helm-charts
   interval: 2h
 ---
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: frigate-helmrepo
