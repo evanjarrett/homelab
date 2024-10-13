@@ -21,8 +21,6 @@ spec:
   interval: 2h
   install:
     createNamespace: true
-  values:
-    installCRDs: true
   valuesFrom:
   - kind: ConfigMap
     name: frigate-helmchart-values-override

@@ -9,4 +9,4 @@ configMapGenerator:
     files:
       - values.yaml=frigate-values.conf
 configurations:
-  - frigate-kustomize.conf
+  - frigate-namereference.yaml
