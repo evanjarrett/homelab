@@ -38,10 +38,8 @@ data:
     # Default values for frigate.
     # This is a YAML-formatted file.
     # Declare variables to be passed into your templates.
-
     # -- upgrade strategy type (e.g. Recreate or RollingUpdate)
     strategyType: Recreate
-
     image:
       # -- Docker registry/repository to pull the image from
       repository: ghcr.io/blakeblackshear/frigate
@@ -49,23 +47,18 @@ data:
       tag: 0.14.1
       # -- Docker image pull policy
       pullPolicy: IfNotPresent
-
     # -- Docker image pull policy
     imagePullSecrets: []
-
     # -- additional ENV variables to set. Prefix with FRIGATE_ to target Frigate configuration values
     env: {}
       # TZ: UTC
-
     envFromSecrets:
       - frigate-secrets
-
     coral:
       # -- enables the use of a Coral device
       enabled: false
       # -- path on the host to which to mount the Coral device
       hostPath: /dev/bus/usb
-
     gpu:
       nvidia:
         # -- Enables NVIDIA GPU compatibility. Must also use the "amd64nvidia" tagged image
@@ -73,30 +66,24 @@ data:
 
         # -- Overrides the default runtimeClassName
         runtimeClassName:
-
     # -- declare extra volumes to use for Frigate
     extraVolumes: []
     # -- declare additional volume mounts
     extraVolumeMounts: []
-
     # -- amount of shared memory to use for caching
     shmSize: 1Gi
-
     # -- use memory for tmpfs (mounted to /tmp)
     tmpfs:
       enabled: true
       sizeLimit: 1Gi
-
     # nameOverride -- Overrides the name of resources
     nameOverride: ""
-
     # fullnameOverride -- Overrides the Full Name of resources
     fullnameOverride: ""
-
     # -- frigate configuration - see [Docs](https://docs.frigate.video/configuration/index) for more info
     config: |
       mqtt:
-        host: {FRIGATE_MQTT_HOST}
+        host: '{FRIGATE_MQTT_HOST}'
         port: 1883
         topic_prefix: frigate
         client_id: frigate
