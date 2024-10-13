@@ -8,4 +8,5 @@ configMapGenerator:
 configurations:
   - ./kustomizeconfig.yaml
 resources:
+  - helm-release.yaml
   - frigate.yaml
