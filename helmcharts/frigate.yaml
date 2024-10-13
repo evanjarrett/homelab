@@ -57,10 +57,8 @@ data:
     env: {}
       # TZ: UTC
 
-    # -- set environment variables from Secret(s)
-    envFromSecrets: []
-      # secrets are required before `helm install`
-      # - frigate-rstp-credentials
+    envFromSecrets:
+      - frigate-secrets
 
     coral:
       # -- enables the use of a Coral device
