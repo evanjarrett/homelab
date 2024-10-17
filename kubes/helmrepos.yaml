@@ -51,3 +51,12 @@ metadata:
 spec:
   url: https://blakeblackshear.github.io/blakeshome-charts
   interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: openebs-helmrepo
+  namespace: flux-system
+spec:
+  url: https://openebs.github.io/openebs
+  interval: 2h

@@ -4,7 +4,7 @@ configMapGenerator:
   - name: frigate-helmchart-values-override
     namespace: frigate
     files:
-      - values.yaml=frigate-values.conf
+      - values.yaml=frigate-values.yaml
 configurations:
   - ./kustomizeconfig.yaml
 resources:

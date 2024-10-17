@@ -153,8 +153,12 @@ persistence:
     size: 10Gi
     skipuninstall: false
 resources:
+  requests:
+    memory: "2Gi"
+    cpu: "4"
+    gpu.intel.com/i915: 1
   limits:
-    memory: "12Gi"
+    memory: "8Gi"
     cpu: "4"
     gpu.intel.com/i915: 1
 securityContext: {}
