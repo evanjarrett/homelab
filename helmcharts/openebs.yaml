@@ -35,8 +35,3 @@ spec:
           enabled: false
         lvm:
           enabled: false
-    mayastor:
-      csi:
-        node:
-          initContainers:
-            enabled: false
