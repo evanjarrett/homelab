@@ -1,0 +1,9 @@
+apiVersion: "openebs.io/v1beta2"
+kind: DiskPool
+metadata:
+  name: pool-on-node-1
+  namespace: openebs
+spec:
+  node: talos-tc9-rk5
+  disks: ["/dev/disk/by-id/nvme-KINGSTON_SNV2S1000G_50026B768684C15E"]
+---
