@@ -6,32 +6,37 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/warn: privileged
-# ---
-# apiVersion: helm.toolkit.fluxcd.io/v2
-# kind: HelmRelease
-# metadata:
-#   name: openebs-helmrelease
-#   namespace: openebs
-# spec:
-#   releaseName: openebs
-#   chart:
-#     spec:
-#       chart: openebs
-#       sourceRef:
-#         kind: HelmRepository
-#         name: openebs-helmrepo
-#         namespace: flux-system
-#       version: 4.1.1
-#   interval: 2h
-#   install:
-#     crds: Create
-#     createNamespace: true
-#     remediation:
-#       retries: 3
-#   values:
-#     engines:
-#       local:
-#         zfs:
-#           enabled: false
-#         lvm:
-#           enabled: false
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs-helmrelease
+  namespace: openebs
+spec:
+  releaseName: openebs
+  chart:
+    spec:
+      chart: openebs
+      sourceRef:
+        kind: HelmRepository
+        name: openebs-helmrepo
+        namespace: flux-system
+      version: 4.1.1
+  interval: 2h
+  install:
+    crds: Create
+    createNamespace: true
+    remediation:
+      retries: 3
+  values:
+    engines:
+      local:
+        zfs:
+          enabled: false
+        lvm:
+          enabled: false
+    mayastor:
+      csi:
+        node:
+          initContainers:
+            enabled: false
