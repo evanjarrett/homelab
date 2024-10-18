@@ -51,3 +51,12 @@ metadata:
 spec:
   url: https://blakeblackshear.github.io/blakeshome-charts
   interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: longhorn-helmrepo
+  namespace: flux-system
+spec:
+  url: https://charts.longhorn.io
+  interval: 2h
