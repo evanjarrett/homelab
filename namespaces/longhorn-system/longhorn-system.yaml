@@ -1,7 +1,8 @@
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: access-to-header-services
+  name: access-to-longhorn-services
+  namespace: longhorn-system
 spec:
   from:
     - group: gateway.networking.k8s.io
