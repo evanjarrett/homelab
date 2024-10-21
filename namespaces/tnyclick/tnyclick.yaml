@@ -2,6 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: tnyclick-tls-route
+  namespace: tnyclick
 spec:
   parentRefs:
   - name: jarrett-net
@@ -22,6 +23,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tnyclick
+  namespace: tnyclick
 spec:
   selector:
     app: tnyclick
@@ -30,10 +32,19 @@ spec:
       port: 8080
       targetPort: 8080
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: tnyclick
+data:
+  AUTH_TOKEN: "not the real token"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tnyclick
+  namespace: tnyclick
 spec:
   selector:
     matchLabels:
@@ -63,10 +74,3 @@ spec:
             cpu: "500m"
       imagePullSecrets:
       - name: registry-secret
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-data:
-  AUTH_TOKEN: "not the real token"
