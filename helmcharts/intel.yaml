@@ -4,6 +4,7 @@ metadata:
   name: intel-device-plugin-gpu-helmrelease
   namespace: kube-system
 spec:
+  releaseName: intel-device-plugin-gpu
   interval: 2h
   chart:
     spec:
@@ -34,6 +35,7 @@ metadata:
   name: intel-device-plugin-operator-helmrelease
   namespace: kube-system
 spec:
+  releaseName: intel-device-plugin-operator
   interval: 15m
   chart:
     spec:
