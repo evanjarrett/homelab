@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knotdns-config
+data:
+  knot.conf: |
+    server:
+      listen: 0.0.0.0@53
+      listen: ::@53
+    zone:
+    - domain: j5t.io
+      storage: /storage
+      file: j5t.io
+    - domain: jarrett.net
+      storage: /storage
+      file: jarrett.net
+    log:
+      - target: stdout
+        any: info
+    remote:
+      - id: cloudflare
+        address: [1.1.1.1, 1.0.0.1]    # Primary Cloudflare DNS
+
+    mod-dnsproxy:
+      - id: default
+        remote: cloudflare
+        fallback: on
+
+    template:
+      - id: default
+        global-module: mod-dnsproxy/default
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knotdns-storage-pvc
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knotdns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: knotdns
+  template:
+    metadata:
+      labels:
+        app: knotdns
+    spec:
+      initContainers:
+      - name: init-storage
+        image: busybox
+        command: ['sh', '-c', 'cp -a /data/. /storage']
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+        - name: init-storage-data
+          mountPath: /data
+      containers:
+      - name: knotdns
+        image: docker.io/cznic/knot:latest
+        resources:
+          limits:
+            memory: "48Mi"
+            cpu: "100m"
+        args:
+          - "/sbin/knotd"
+        ports:
+        - containerPort: 53
+          protocol: TCP
+        - containerPort: 53
+          protocol: UDP
+        livenessProbe:
+          tcpSocket:
+            port: 53
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 53
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: storage
+          mountPath: /storage
+      volumes:
+      - name: config
+        configMap:
+          name: knotdns-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: knotdns-storage-pvc
+      - name: init-storage-data
+        configMap:
+          name: knotdns-init-storage-data
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knotdns-init-storage-data
+data:
+  j5t.io: |
+    @    IN    SOA    ns.j5t.io. admin.j5t.io. (2021080301 3600 1800 604800 86400)
+    @    IN    NS     ns.j5t.io.
+    ns   IN    A      192.168.3.140
+    * IN A 192.168.3.135
+  jarrett.net: |
+    @    IN    SOA    ns.jarrett.net. admin.jarrett.net. (2021080301 3600 1800 604800 86400)
+    @    IN    NS     ns.jarrett.net.
+    ns   IN    A      192.168.3.140
+    * IN A 192.168.3.135
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knotdns-udp
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.140
+    metallb.universe.tf/allow-shared-ip: knotdns
+spec:
+  selector:
+    app: knotdns
+  ports:
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: knotdns-tcp
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.140
+    metallb.universe.tf/allow-shared-ip: knotdns
+spec:
+  selector:
+    app: knotdns
+  ports:
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+  type: LoadBalancer

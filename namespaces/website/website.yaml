@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: website
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: evanjarrett-tls-route
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: nginx-gateway
+  hostnames:
+    - "evanjarrett.com"
+    - "jarrett.net"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: evanjarrettcom
+          namespace: website
+          port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: evanjarrettcom
+spec:
+  selector:
+    app: evanjarrettcom
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evanjarrettcom
+spec:
+  selector:
+    matchLabels:
+      app: evanjarrettcom
+  template:
+    metadata:
+      labels:
+        app: evanjarrettcom
+    spec:
+      containers:
+        - name: evanjarrettcom
+          image: ghcr.io/evanjarrett/evanjarrettcom:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              memory: "48Mi"
+              cpu: "100m"
+      imagePullSecrets:
+        - name: registry-secret
