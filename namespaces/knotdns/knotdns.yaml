@@ -60,53 +60,53 @@ spec:
         app: knotdns
     spec:
       initContainers:
-      - name: init-storage
-        image: busybox
-        command: ['sh', '-c', 'cp -a /data/. /storage']
-        volumeMounts:
-        - name: storage
-          mountPath: /storage
-        - name: init-storage-data
-          mountPath: /data
+        - name: init-storage
+          image: busybox
+          command: ["sh", "-c", "cp -a /data/. /storage"]
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+            - name: init-storage-data
+              mountPath: /data
       containers:
-      - name: knotdns
-        image: docker.io/cznic/knot:latest
-        resources:
-          limits:
-            memory: "48Mi"
-            cpu: "100m"
-        args:
-          - "/sbin/knotd"
-        ports:
-        - containerPort: 53
-          protocol: TCP
-        - containerPort: 53
-          protocol: UDP
-        livenessProbe:
-          tcpSocket:
-            port: 53
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          tcpSocket:
-            port: 53
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        volumeMounts:
-        - name: config
-          mountPath: /config
-        - name: storage
-          mountPath: /storage
+        - name: knotdns
+          image: docker.io/cznic/knot:latest
+          resources:
+            limits:
+              memory: "48Mi"
+              cpu: "100m"
+          args:
+            - "/sbin/knotd"
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+          livenessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: storage
+              mountPath: /storage
       volumes:
-      - name: config
-        configMap:
-          name: knotdns-config
-      - name: storage
-        persistentVolumeClaim:
-          claimName: knotdns-storage-pvc
-      - name: init-storage-data
-        configMap:
-          name: knotdns-init-storage-data
+        - name: config
+          configMap:
+            name: knotdns-config
+        - name: storage
+          persistentVolumeClaim:
+            claimName: knotdns-storage-pvc
+        - name: init-storage-data
+          configMap:
+            name: knotdns-init-storage-data
 ---
 apiVersion: v1
 kind: ConfigMap

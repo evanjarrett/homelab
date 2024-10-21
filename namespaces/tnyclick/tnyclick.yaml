@@ -5,19 +5,19 @@ metadata:
   namespace: tnyclick
 spec:
   parentRefs:
-  - name: jarrett-net
-    namespace: gateway
+    - name: jarrett-net
+      namespace: gateway
   hostnames:
-  - "tny.click"
+    - "tny.click"
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /
-    backendRefs:
-    - name: tnyclick
-      namespace: tnyclick
-      port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: tnyclick
+          namespace: tnyclick
+          port: 8080
 ---
 apiVersion: v1
 kind: Service
@@ -55,22 +55,22 @@ spec:
         app: tnyclick
     spec:
       containers:
-      - name: tnyclick
-        image: ghcr.io/evanjarrett/go-tnyclick/tnyclick:latest
-        ports:
-        - containerPort: 8080
-        env:
-        - name: AUTH_TOKEN
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: AUTH_TOKEN
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
+        - name: tnyclick
+          image: ghcr.io/evanjarrett/go-tnyclick/tnyclick:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: AUTH_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: AUTH_TOKEN
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       imagePullSecrets:
-      - name: registry-secret
+        - name: registry-secret

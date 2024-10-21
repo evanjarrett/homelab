@@ -21,6 +21,6 @@ spec:
   uninstall:
     disableHooks: true
   valuesFrom:
-  - kind: ConfigMap
-    name: frigate-helmchart-values-override
-    valuesKey: values.yaml
+    - kind: ConfigMap
+      name: frigate-helmchart-values-override
+      valuesKey: values.yaml

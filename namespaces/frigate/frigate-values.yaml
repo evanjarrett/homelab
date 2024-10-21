@@ -133,7 +133,7 @@ ingress:
   hosts:
     - host: chart.example.local
       paths:
-        - path: '/'
+        - path: "/"
           portName: http-auth
   tls: []
 persistence:

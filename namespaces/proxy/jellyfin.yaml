@@ -5,14 +5,14 @@ metadata:
   namespace: proxy
 spec:
   parentRefs:
-  - name: jarrett-net
-    namespace: gateway
+    - name: jarrett-net
+      namespace: gateway
   hostnames:
-  - jellyfin.jarrett.tech
+    - jellyfin.jarrett.tech
   rules:
-  - backendRefs:
-    - name: jellyfin
-      port: 80
+    - backendRefs:
+        - name: jellyfin
+          port: 80
 ---
 apiVersion: v1
 kind: Service
