@@ -10,6 +10,7 @@ metadata:
   namespace: gateway
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.135
 spec:
   gatewayClassName: istio
   listeners:

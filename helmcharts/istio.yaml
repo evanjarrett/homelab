@@ -99,7 +99,5 @@ spec:
     remediation:
       retries: 3
   values:
-    kind: DaemonSet
     service:
-      annotations:
-        metallb.universe.tf/loadBalancerIPs: 192.168.3.135
+      type: None
