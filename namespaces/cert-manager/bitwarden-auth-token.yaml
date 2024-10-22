@@ -4,15 +4,14 @@ metadata:
   annotations:
     sealedsecrets.bitnami.com/cluster-wide: "true"
   creationTimestamp: null
-  name: bitwaden-auth-token
-  namespace: cert-manager
+  name: bw-auth-token
 spec:
   encryptedData:
-    token: AgAQorPZJo2xS3UAnJ2vAhmw2VJNpXQuAv63eDMpsN898eRYEhPLwYaJXOCTXqzKI6SZAksRmfyXSDwUM7nzL33L9ZuAzdX/kEqoovwCqeRvCrbBgcYTY+autBolkFHgQtU6vFt/naOHbI64o9pvRbqUJJRYTuI3Y+uWfl9jHnUeU8LrYzPNzvHyRVzNqu4H0Fu6PG74yn3reO1dv+tZMd98XD0ApFXpbCCdbAF6f03apYrj+pO50D2/kG+sY+/e9awfVBaDkQaDO7rtgSuzGY8kg1i2YXibOTVJrO+xXul7VFIe4cSq11Qdx4OdCVHpN3rGxBK7nzzltdrf/mY0C10bWWyEMuz6eRxYurrFGi/fCB2xCFCoIdI0SdCmkEBfOw9LB4Y8UIGULDuwKpftdcX1L/++fBZvw7/xEDp6Mz1idthGCFK+YyW7ZxJKAOHlGCJcLRM3Oq/cupScla6BOZO1tC8AqQzzKRJvNzdJ/hKC10KBlK5Jr6h9YVq6GCKs3IjXSQYI8AO6iVY8u6vgPvBbAHBsTxlBkNC0QuV03xtAXLOIFIqq6u/mw8IG9+HVqpC+/F5htMkJ8Eh2WneoHZFghrA6ncZ6fRKfODTIwF+katHqqdbMra/CzV8WHYq1dutkxB/OGyCeRHlQ93jkyA6Zo9FZTwQxTBdXrcD9S8QTcdtNB/NbRLoigKDuDcdMHuUcoZmbe2dO+k88YzrQ0kyr4/e8otn3OvE8nV3wP/gOHmh+Qvfp2EA+0xe4Wi+08ipHI7M1j2NvJJZmYXF4impBlQtXpfaP5msRsr0nC+mLmNAlerYwLnAoHhmRRNSy
+    token: AgARGe5yWKHsDsy3/BpIyCWq0Qhw2Jj7U6roYSza49GEZhHs2OdhnkCjBmTpGiMRp8d1uRrd28PJkSdWjtfNShwkDVwOlDblrySnmIavkceaaB2DLEH9DOHTGIrMg/sGrdcaSgo3j3VSsLvXGWIzYTrLhN7/+Z5q7yVJAbPPaKKLZYurR/cbhf2ficXU1fL7SWcr2QvdZ0madNGWzuMYV2J9AtEc4yPmOt0RYnWSmTx7+AgaVOUgYhuIytFjpu+INL997JU91o6oof96vv55i53ERLkXtMFFoE8B3An1vNuh12r320TYidu0jqODMmu5pTBK/MZkz+YYjtNg74yZ2H+XaSRn5a1ExdDXn6rhDRXb+JGOMRLCysIlPa0SXZFieyLtp+BpKObMsWX7YXX1kWcey0AQ6NA/JyStSe6mrAoXrir0C6QJEca//RDOojBrNkS5U0XrA6l9UlBBXRsz7OXICRQ5k4weR8z9dwZl/qcEkb1L4zOiyw5z4X3QsmmIRj5eCKA431KV4zZYUf+L+fv8BZuFJ7KIy+DJa4JP/bthd6sTMlGHRLl6sHKEOUCiOCupF+yqVaufOVXadvF9TSaTh/sZHmYWs61IHfmaZCGakw7ySdwFUO6WsEiJOOa6FPB9tXLH5BEy8KwIx3CtMhv9TXMBykfDrinL/+yfB9JOYG53eDA+TlzWgnAz30NEGILHlp7ealeuSyCWC2VE1L4MGPwYn0SnpBbCkH4DagvNJkQCkNEtMNkKxdLkMcTf38u594wUtd2cwipT9LJMAj2b3d/Bhpap9leo3CKSK+fXEpSf0aYas8AwNifGZkZr
   template:
     metadata:
       annotations:
         sealedsecrets.bitnami.com/cluster-wide: "true"
       creationTimestamp: null
-      name: bitwaden-auth-token
+      name: bw-auth-token
     type: Opaque
