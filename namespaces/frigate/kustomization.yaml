@@ -10,5 +10,5 @@ configurations:
 resources:
   - helm-release.yaml
   - frigate.yaml
-  - bitwarden-secret.yaml
   - bitwarden-auth-token.yaml
+  - bitwarden-secret.yaml
