@@ -1,0 +1,17 @@
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  annotations:
+    sealedsecrets.bitnami.com/cluster-wide: "true"
+  creationTimestamp: null
+  name: bitwaden-auth-token
+spec:
+  encryptedData:
+    token: AgAQorPZJo2xS3UAnJ2vAhmw2VJNpXQuAv63eDMpsN898eRYEhPLwYaJXOCTXqzKI6SZAksRmfyXSDwUM7nzL33L9ZuAzdX/kEqoovwCqeRvCrbBgcYTY+autBolkFHgQtU6vFt/naOHbI64o9pvRbqUJJRYTuI3Y+uWfl9jHnUeU8LrYzPNzvHyRVzNqu4H0Fu6PG74yn3reO1dv+tZMd98XD0ApFXpbCCdbAF6f03apYrj+pO50D2/kG+sY+/e9awfVBaDkQaDO7rtgSuzGY8kg1i2YXibOTVJrO+xXul7VFIe4cSq11Qdx4OdCVHpN3rGxBK7nzzltdrf/mY0C10bWWyEMuz6eRxYurrFGi/fCB2xCFCoIdI0SdCmkEBfOw9LB4Y8UIGULDuwKpftdcX1L/++fBZvw7/xEDp6Mz1idthGCFK+YyW7ZxJKAOHlGCJcLRM3Oq/cupScla6BOZO1tC8AqQzzKRJvNzdJ/hKC10KBlK5Jr6h9YVq6GCKs3IjXSQYI8AO6iVY8u6vgPvBbAHBsTxlBkNC0QuV03xtAXLOIFIqq6u/mw8IG9+HVqpC+/F5htMkJ8Eh2WneoHZFghrA6ncZ6fRKfODTIwF+katHqqdbMra/CzV8WHYq1dutkxB/OGyCeRHlQ93jkyA6Zo9FZTwQxTBdXrcD9S8QTcdtNB/NbRLoigKDuDcdMHuUcoZmbe2dO+k88YzrQ0kyr4/e8otn3OvE8nV3wP/gOHmh+Qvfp2EA+0xe4Wi+08ipHI7M1j2NvJJZmYXF4impBlQtXpfaP5msRsr0nC+mLmNAlerYwLnAoHhmRRNSy
+  template:
+    metadata:
+      annotations:
+        sealedsecrets.bitnami.com/cluster-wide: "true"
+      creationTimestamp: null
+      name: bitwaden-auth-token
+    type: Opaque
