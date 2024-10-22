@@ -27,5 +27,3 @@ spec:
     createNamespace: true
     remediation:
       retries: 3
-  values:
-    installCRDs: true
