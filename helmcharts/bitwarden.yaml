@@ -2,7 +2,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: bitwarden-helmrelease
-  namespace: flux-system
+  namespace: bitwarden
 spec:
   releaseName: bitwarden-sm-operator
   chart:
@@ -21,3 +21,9 @@ spec:
       retries: 3
   upgrade:
     crds: CreateReplace
+  values:
+    containers:
+      manager:
+        image:
+          repository: ghcr.io/evanjarrett/sm-operator
+          tag: dev
