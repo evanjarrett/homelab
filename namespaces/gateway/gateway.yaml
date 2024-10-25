@@ -14,101 +14,91 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-    - allowedRoutes:
-        namespaces:
-          from: All
-      hostname: homeassistant.jarrett.net
-      name: homeassistantjarrettnet
-      port: 80
-      protocol: HTTP
-    - allowedRoutes:
-        namespaces:
-          from: All
+    - name: jarrettnet
       hostname: "*.jarrett.net"
-      name: jarrettnet
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: jarrett-net-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
-      hostname: jarrett.net
-      name: jarrettnetfull
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jarrett-net-tls
+    - name: jarrettnetfull
+      hostname: "jarrett.net"
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: jarrett-net-full-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
-      hostname: tny.click
-      name: tnyclick
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jarrett-net-full-tls
+    - name: tnyclick
+      hostname: "tny.click"
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: tnyclick-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
-      hostname: evanjarrett.com
-      name: evanjarrettcom
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: tnyclick-tls
+    - name: evanjarrettcom
+      hostname: "evanjarrett.com"
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: evanjarrett-com-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
-      hostname: jarrett.tech
-      name: jarretttech
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: evanjarrett-com-tls
+    - name: jarretttechfull
+      hostname: "jarrett.tech"
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: jarrett-tech-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
-      hostname: j5t.io
-      name: j5tiofull
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jarrett-tech-full-tls
+    - name: jarretttech
+      hostname: "*.jarrett.tech"
       port: 443
       protocol: HTTPS
-      tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: j5t-io-full-tls
-        mode: Terminate
-    - allowedRoutes:
+      allowedRoutes:
         namespaces:
           from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jarrett-tech-tls
+    - name: j5tiofull
+      hostname: "j5t.io"
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: j5t-io-full-tls
+    - name: j5tio
       hostname: "*.j5t.io"
-      name: j5tio
       port: 443
       protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
       tls:
-        certificateRefs:
-          - group: ""
-            kind: Secret
-            name: j5t-io-tls
         mode: Terminate
+        certificateRefs:
+          - name: j5t-io-tls
