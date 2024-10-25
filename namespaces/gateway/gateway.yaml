@@ -14,25 +14,101 @@ metadata:
 spec:
   gatewayClassName: istio
   listeners:
-    - name: jarretttech
-      hostname: "*.jarrett.tech"
-      port: 443
-      protocol: HTTPS
-      allowedRoutes:
+    - allowedRoutes:
         namespaces:
           from: All
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - name: jarrett-tech-tls
-    - name: jarretttechfull
-      hostname: "jarrett.tech"
-      port: 443
-      protocol: HTTPS
-      allowedRoutes:
+      hostname: homeassistant.jarrett.net
+      name: homeassistantjarrettnet
+      port: 80
+      protocol: HTTP
+    - allowedRoutes:
         namespaces:
           from: All
+      hostname: "*.jarrett.net"
+      name: jarrettnet
+      port: 443
+      protocol: HTTPS
       tls:
-        mode: Terminate
         certificateRefs:
-          - name: jarrett-tech-full-tls
+          - group: ""
+            kind: Secret
+            name: jarrett-net-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: jarrett.net
+      name: jarrettnetfull
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: jarrett-net-full-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: tny.click
+      name: tnyclick
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tnyclick-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: evanjarrett.com
+      name: evanjarrettcom
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: evanjarrett-com-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: jarrett.tech
+      name: jarretttech
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: jarrett-tech-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: j5t.io
+      name: j5tiofull
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: j5t-io-full-tls
+        mode: Terminate
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: "*.j5t.io"
+      name: j5tio
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: j5t-io-tls
+        mode: Terminate

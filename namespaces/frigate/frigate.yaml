@@ -31,7 +31,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - frigate.jarrett.tech
+    - frigate.j5t.io
   rules:
     - backendRefs:
         - name: frigate

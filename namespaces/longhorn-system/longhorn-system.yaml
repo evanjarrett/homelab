@@ -22,7 +22,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - longhorn.jarrett.tech
+    - longhorn.j5t.io
   rules:
     - matches:
         - path:

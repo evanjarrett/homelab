@@ -8,7 +8,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - synology.jarrett.tech
+    - synology.jarrett.net
   rules:
     - backendRefs:
         - name: synology
@@ -25,7 +25,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - photos.jarrett.tech
+    - photos.jarrett.net
   rules:
     - backendRefs:
         - name: synology
@@ -42,7 +42,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - calendar.jarrett.tech
+    - calendar.jarrett.net
   rules:
     - backendRefs:
         - name: synology
@@ -59,7 +59,7 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - contacts.jarrett.tech
+    - contacts.jarrett.net
   rules:
     - backendRefs:
         - name: synology
