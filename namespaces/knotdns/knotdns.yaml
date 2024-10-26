@@ -71,8 +71,7 @@ spec:
               mountPath: /storage
       volumes:
         - name: config
-          configMap:
-            name: knotdns-config
+          emptyDir: {}
         - name: storage
           persistentVolumeClaim:
             claimName: knotdns-storage-pvc
