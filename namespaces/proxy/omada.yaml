@@ -14,15 +14,3 @@ spec:
         - name: omada
           namespace: proxy
           port: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: omada
-  namespace: proxy
-spec:
-  ports:
-    - name: web
-      port: 80
-      targetPort: 80
-  type: ClusterIP
