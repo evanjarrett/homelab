@@ -40,6 +40,8 @@ spec:
               mountPath: /storage
             - name: init-storage-data
               mountPath: /data
+            - name: config
+              mountPath: /config
       containers:
         - name: knotdns
           image: docker.io/cznic/knot:latest
