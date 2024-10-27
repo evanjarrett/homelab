@@ -32,14 +32,6 @@ spec:
       port: 8080
       targetPort: 8080
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: tnyclick
-data:
-  AUTH_TOKEN: "not the real token"
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -62,8 +54,8 @@ spec:
           env:
             - name: AUTH_TOKEN
               valueFrom:
-                configMapKeyRef:
-                  name: app-config
+                secretKeyRef:
+                  name: tnyclick-auth-token
                   key: AUTH_TOKEN
           resources:
             requests:
@@ -72,5 +64,3 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-      imagePullSecrets:
-        - name: registry-secret

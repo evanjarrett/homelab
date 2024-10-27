@@ -87,7 +87,7 @@ metadata:
   name: knotdns-udp
   namespace: knotdns
   annotations:
-    metallb.universe.tf/loadBalancerIPs: 192.168.3.140
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.2
     metallb.universe.tf/allow-shared-ip: knotdns
 spec:
   selector:
@@ -105,7 +105,7 @@ metadata:
   name: knotdns-tcp
   namespace: knotdns
   annotations:
-    metallb.universe.tf/loadBalancerIPs: 192.168.3.140
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.2
     metallb.universe.tf/allow-shared-ip: knotdns
 spec:
   selector:
