@@ -28,7 +28,7 @@ spec:
     - photos.jarrett.net
   rules:
     - backendRefs:
-        - name: synology
+        - name: photos
           namespace: proxy
           port: 8081
 ---
@@ -45,7 +45,7 @@ spec:
     - calendar.jarrett.net
   rules:
     - backendRefs:
-        - name: synology
+        - name: calendar
           namespace: proxy
           port: 8082
 ---
@@ -62,6 +62,6 @@ spec:
     - contacts.jarrett.net
   rules:
     - backendRefs:
-        - name: synology
+        - name: contacts
           namespace: proxy
           port: 8083

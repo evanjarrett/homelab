@@ -16,7 +16,7 @@ spec:
             value: /login
       backendRefs:
         - name: homeassistant
-          port: 80
+          port: 8123
     - backendRefs:
         - name: homeassistant
-          port: 80
+          port: 8123
