@@ -77,4 +77,4 @@ metadata:
   namespace: flux-system
 spec:
   url: https://evanjarrett.github.io/secret-service-operator
-  interval: 5m
+  interval: 1m
