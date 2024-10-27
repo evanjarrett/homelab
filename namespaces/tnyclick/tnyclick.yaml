@@ -48,7 +48,7 @@ spec:
     spec:
       containers:
         - name: tnyclick
-          image: ghcr.io/evanjarrett/go-tnyclick/tnyclick:latest
+          image: ghcr.io/evanjarrett/go-tnyclick:latest
           ports:
             - containerPort: 8080
           env:
