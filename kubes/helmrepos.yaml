@@ -69,3 +69,12 @@ metadata:
 spec:
   url: https://charts.bitwarden.com/
   interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: secret-service-helmrepo
+  namespace: flux-system
+spec:
+  url: https://evanjarrett.github.io/secret-service-operator
+  interval: 2h
