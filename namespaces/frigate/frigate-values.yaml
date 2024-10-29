@@ -29,6 +29,7 @@ nameOverride: ""
 fullnameOverride: ""
 config: |
   mqtt:
+    enabled: true
     host: "{FRIGATE_MQTT_HOST}"
     port: 1883
     topic_prefix: frigate
