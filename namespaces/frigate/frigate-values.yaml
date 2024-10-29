@@ -33,7 +33,7 @@ config: |
     port: 1883
     topic_prefix: frigate
     client_id: frigate
-    user: ejarrett
+    user: mqtt
     password: "{FRIGATE_MQTT_PASSWORD}"
     stats_interval: 60
   ui:
@@ -80,6 +80,11 @@ config: |
         enabled: True
       snapshots:
         enabled: True
+        required_zones:
+          - driveway-and-street
+      zones:
+        driveway-and-street:
+          coordinates: 896,0,896,512,0,512,0,174,480,24,490,0
     driveway:
       ffmpeg:
         inputs:
@@ -137,21 +142,16 @@ ingress:
           portName: http-auth
   tls: []
 persistence:
-  data:
-    enabled: false
-    accessMode: ReadWriteOnce
-    size: 10Gi
-    skipuninstall: false
   config:
-    enabled: false
+    enabled: true
     accessMode: ReadWriteOnce
     size: 100Mi
     skipuninstall: false
   media:
-    enabled: false
+    enabled: true
     accessMode: ReadWriteOnce
     size: 10Gi
-    skipuninstall: false
+    skipuninstall: true
 resources:
   requests:
     memory: "2Gi"
