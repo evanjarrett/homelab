@@ -30,18 +30,13 @@ fullnameOverride: ""
 config: |
   mqtt:
     enabled: true
-    host: "{FRIGATE_MQTT_HOST}"
+    host: homeassistant.proxy.svc.cluster.local
     port: 1883
     topic_prefix: frigate
     client_id: frigate
     user: mqtt
     password: "{FRIGATE_MQTT_PASSWORD}"
     stats_interval: 60
-  logger:
-    default: debug
-    logs:
-      frigate.mqtt: debug
-      frigate.comms.mqtt: debug
   ui:
     timezone: America/Chicago
   detectors:
