@@ -37,9 +37,10 @@ config: |
     password: "{FRIGATE_MQTT_PASSWORD}"
     stats_interval: 60
   logger:
-    default: info
+    default: debug
     logs:
       frigate.mqtt: debug
+      frigate.comms.mqtt: debug
   ui:
     timezone: America/Chicago
   detectors:
