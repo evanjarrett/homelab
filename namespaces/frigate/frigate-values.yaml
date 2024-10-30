@@ -30,7 +30,7 @@ fullnameOverride: ""
 config: |
   mqtt:
     enabled: true
-    host: homeassistant.proxy.svc.cluster.local
+    host: mqtt.proxy.svc.cluster.local
     port: 1883
     topic_prefix: frigate
     client_id: frigate
