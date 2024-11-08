@@ -60,7 +60,7 @@ spec:
     crds: CreateReplace
   values:
     remoteWrite:
-      - url: http://vmcluster-victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
+      - url: http://victoria-metrics-cluster-vminsert.monitoring.svc.cluster.local:8480/insert/0/prometheus/
     config:
       global:
         scrape_interval: 10s
