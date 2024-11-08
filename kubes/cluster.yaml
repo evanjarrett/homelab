@@ -70,7 +70,7 @@ spec:
   prune: true
   sourceRef:
     kind: GitRepository
-    name: node-feature-discovery-repo
+    name: kubelet-serving-cert-approver-repo
   timeout: 5m0s
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
