@@ -82,6 +82,15 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
+  name: victoria-metrics-helmrepo
+  namespace: flux-system
+spec:
+  url: https://victoriametrics.github.io/helm-charts/
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
   name: secret-service-helmrepo
   namespace: flux-system
 spec:
