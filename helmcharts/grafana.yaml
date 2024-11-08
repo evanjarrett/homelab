@@ -37,7 +37,7 @@ spec:
           - name: victoriametrics
             type: prometheus
             orgId: 1
-            url: http://vmcluster-victoria-metrics-cluster-vmselect.default.svc.cluster.local:8481/select/0/prometheus/
+            url: http://vmcluster-victoria-metrics-cluster-vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus/
             access: proxy
             isDefault: true
             updateIntervalSeconds: 10
