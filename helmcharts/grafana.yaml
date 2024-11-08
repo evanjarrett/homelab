@@ -26,3 +26,7 @@ spec:
       retries: 3
   upgrade:
     crds: CreateReplace
+  values:
+    persistence:
+      type: pvc
+      enabled: true
