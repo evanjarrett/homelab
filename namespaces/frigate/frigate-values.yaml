@@ -52,6 +52,9 @@ config: |
       - cat
       - car
       - dog
+    filters:
+      car:
+        threshold: 0.7
   go2rtc:
     streams:
       4kcamera:

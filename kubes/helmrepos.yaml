@@ -73,6 +73,15 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
+  name: grafana-helmrepo
+  namespace: flux-system
+spec:
+  url: https://grafana.github.io/helm-charts
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
   name: secret-service-helmrepo
   namespace: flux-system
 spec:
