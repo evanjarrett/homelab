@@ -1,0 +1,28 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: metrics-server-helmrelease
+  namespace: kube-system
+spec:
+  releaseName: metrics-server
+  chart:
+    spec:
+      chart: metrics-server
+      sourceRef:
+        kind: HelmRepository
+        name: metrics-server-helmrepo
+        namespace: flux-system
+      version: 3.12.2
+  interval: 2h
+  install:
+    createNamespace: true
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+  values:
+    apiService:
+      insecureSkipTLSVerify: false
+    tls:
+      type: cert-manager

@@ -67,7 +67,7 @@ metadata:
   name: bitwarden-helmrepo
   namespace: flux-system
 spec:
-  url: https://charts.bitwarden.com/
+  url: https://charts.bitwarden.com
   interval: 2h
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
@@ -85,7 +85,16 @@ metadata:
   name: victoria-metrics-helmrepo
   namespace: flux-system
 spec:
-  url: https://victoriametrics.github.io/helm-charts/
+  url: https://victoriametrics.github.io/helm-charts
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: metrics-server-helmrepo
+  namespace: flux-system
+spec:
+  url: https://kubernetes-sigs.github.io/metrics-server
   interval: 2h
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
