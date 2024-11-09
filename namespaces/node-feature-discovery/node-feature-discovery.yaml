@@ -59,11 +59,11 @@ metadata:
 spec:
   rules:
     - name: "nodename"
+      labels:
+        talos.hasnodename: "true"
       labelsTemplate: |
         talos.nodename={{ .system.name.nodename }}
       matchFeatures:
         - feature: system.name
-          matchExpressions: 
-            nodename:
-              op: InRegexp
-              value: ["^talos-.*$"]
+          matchName: 
+            op: Exists
