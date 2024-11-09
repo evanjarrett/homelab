@@ -51,3 +51,19 @@ spec:
               op: In
               value:
                 - "53424"
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: nodename
+spec:
+  rules:
+    - name: "nodename"
+      labelsTemplate: |
+        talos.nodename={{ .system.name.nodename }}
+      matchFeatures:
+        - feature: system.name
+          matchExpressions: 
+            nodename:
+              op: InRegexp
+              value: ["^talos-.*$"]
