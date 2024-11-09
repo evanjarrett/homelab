@@ -154,7 +154,7 @@ persistence:
   media:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 10Gi
+    size: 100Gi
     skipuninstall: true
 resources:
   requests:
