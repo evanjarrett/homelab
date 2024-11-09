@@ -149,7 +149,7 @@ persistence:
   config:
     enabled: true
     accessMode: ReadWriteOnce
-    size: 1Gi
+    size: 10Gi
     skipuninstall: false
   media:
     enabled: true

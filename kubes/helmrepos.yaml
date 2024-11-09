@@ -100,6 +100,15 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
+  name: csi-driver-nfs-helmrepo
+  namespace: flux-system
+spec:
+  url: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
   name: secret-service-helmrepo
   namespace: flux-system
 spec:
