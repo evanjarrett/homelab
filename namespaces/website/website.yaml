@@ -11,7 +11,7 @@ metadata:
 spec:
   parentRefs:
     - name: jarrett-net
-      namespace: nginx-gateway
+      namespace: gateway
   hostnames:
     - "evanjarrett.com"
     - "jarrett.net"
