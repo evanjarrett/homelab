@@ -61,5 +61,4 @@ spec:
             limits:
               memory: "48Mi"
               cpu: "100m"
-      imagePullSecrets:
-        - name: registry-secret
+
