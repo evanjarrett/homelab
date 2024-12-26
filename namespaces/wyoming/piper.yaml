@@ -38,7 +38,7 @@ metadata:
 spec:
   selector:
     app: piper
-  type: ClusterIP
+  type: LoadBalancer
   ports:
     - name: piper
       protocol: TCP
