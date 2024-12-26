@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whisper
+  namespace: wyoming
+spec:
+  selector:
+    matchLabels:
+      app: whisper
+  template:
+    metadata:
+      labels:
+        app: whisper
+    spec:
+      containers:
+      - name: whisper
+        image: docker.io/rhasspy/wyoming-whisper:latest
+        ports:
+        - containerPort: 10300
+        args:
+          - --device
+          - cpu
+          - --model
+          - small
+          - --language
+          - en
+        resources:
+          limits:
+            cpu: "2"
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whisper
+  namespace: wyoming
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.12
+spec:
+  selector:
+    app: whisper
+  ports:
+    - protocol: TCP
+      port: 10300
+      targetPort: 10300
+  type: LoadBalancer
