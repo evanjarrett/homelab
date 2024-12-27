@@ -11,9 +11,15 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nvidia-smi
+  namespace: wyoming
 spec:
   restartPolicy: OnFailure
   containers:
     - name: nvidia-smi
       image: "nvidia/cuda:12.5.0-base-ubuntu22.04"
       args: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+          cpu: 2
+          memory: 2Gi
