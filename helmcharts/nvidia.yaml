@@ -4,21 +4,30 @@ metadata:
   name: nvidia
 handler: nvidia
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-operator
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: nvidia-device-plugin-helmrelease
-  namespace: node-feature-discovery
+  namespace: gpu-operator
 spec:
-  releaseName: nvidia-device-plugin
+  releaseName: gpu-operator
   interval: 15m
   chart:
     spec:
-      chart: nvidia-device-plugin
-      version: 0.17.0
+      chart: gpu-operator
+      version: v24.9.1
       sourceRef:
         kind: HelmRepository
-        name: nvidia-device-plugin-helmrepo
+        name: nvidia-helmrepo
         namespace: flux-system
   maxHistory: 3
   install:
@@ -32,9 +41,3 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
-  values:
-    runtimeClassName: nvidia
-    gfd:
-      enabled: true
-    nfd:
-      enabled: false

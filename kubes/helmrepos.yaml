@@ -109,10 +109,10 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: nvidia-device-plugin-helmrepo
+  name: nvidia-helmrepo
   namespace: flux-system
 spec:
-  url: https://nvidia.github.io/k8s-device-plugin
+  url: https://helm.ngc.nvidia.com/nvidia
   interval: 2h
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
