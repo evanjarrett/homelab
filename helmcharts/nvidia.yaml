@@ -44,3 +44,7 @@ spec:
   values:
     nfd:
       enabled: false
+    driver:
+      enabled: false
+    toolkit:
+      enabled: false
