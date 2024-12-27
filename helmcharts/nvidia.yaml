@@ -41,3 +41,6 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
+  values:
+    nfd:
+      enabled: false
