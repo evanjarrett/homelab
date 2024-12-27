@@ -38,17 +38,20 @@ spec:
       enabled: true
     nfd:
       enabled: false
+    config:
+      name: nvd-config
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: time-slicing-config
+  name: nvd-config
   namespace: kube-system
 data:
   any: |-
     version: v1
     flags:
       migStrategy: none
+      nvidiaDriverRoot: "/"
     sharing:
       timeSlicing:
         renameByDefault: false
