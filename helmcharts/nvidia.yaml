@@ -34,3 +34,5 @@ spec:
     keepHistory: false
   values:
     runtimeClassName: nvidia
+    gfd:
+      enabled: true
