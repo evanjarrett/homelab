@@ -38,15 +38,3 @@ spec:
       enabled: true
     nfd:
       enabled: false
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nvd-config
-  namespace: kube-system
-data:
-  any: |-
-    version: v1
-    flags:
-      migStrategy: single
-      nvidiaDriverRoot: "/"
