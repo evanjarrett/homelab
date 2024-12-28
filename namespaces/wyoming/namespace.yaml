@@ -16,7 +16,8 @@ spec:
   restartPolicy: OnFailure
   containers:
     - name: nvidia-smi
-      image: "nvidia/cuda:12.5.0-base-ubuntu22.04"
+      image: "nvidia/cuda:12.6.3-base-ubuntu24.04"
       args: ["nvidia-smi"]
+  runtimeClassName: nvidia
   nodeSelector: 
     kubernetes.io/hostname: talos-tc9-rk5
