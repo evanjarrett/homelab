@@ -38,26 +38,4 @@ spec:
       enabled: true
     nfd:
       enabled: false
-    config:
-      name: nvd-config
-    compatWithCPUManager: true
-    deviceListStrategy: volume-mounts
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nvd-config
-  namespace: kube-system
-data:
-  any: |-
-    version: v1
-    flags:
-      migStrategy: none
-      nvidiaDriverRoot: "/"
-    sharing:
-      timeSlicing:
-        renameByDefault: false
-        failRequestsGreaterThanOne: false
-        resources:
-          - name: nvidia.com/gpu
-            replicas: 2
+
