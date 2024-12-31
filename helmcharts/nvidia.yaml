@@ -38,6 +38,8 @@ spec:
       enabled: true
     nfd:
       enabled: false
+    config:
+      name: nvd-config
 ---
 apiVersion: v1
 kind: ConfigMap
