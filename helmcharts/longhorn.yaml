@@ -30,4 +30,4 @@ spec:
   values:
     longhornManager:
       nodeSelector:
-        storage.longhorn: true
+        storage.longhorn: "true"
