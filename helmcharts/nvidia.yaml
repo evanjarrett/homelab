@@ -51,7 +51,7 @@ data:
     version: v1
     flags:
       migStrategy: none
-      nvidiaDriverRoot: /proc/driver/nvidia
+      nvidiaDriverRoot: /
     sharing:
       timeSlicing:
         resources:
