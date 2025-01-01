@@ -34,3 +34,6 @@ spec:
     longhornDriver:
       nodeSelector:
         storage.longhorn: "true"
+    longhornUI:
+      nodeSelector:
+        storage.longhorn: "true"
