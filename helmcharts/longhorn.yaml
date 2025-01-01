@@ -27,3 +27,7 @@ spec:
     createNamespace: true
     remediation:
       retries: 3
+  values:
+    longhornManager:
+      nodeSelector:
+        storage.longhorn: true
