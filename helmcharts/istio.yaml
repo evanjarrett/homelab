@@ -32,9 +32,6 @@ spec:
     crds: CreateReplace
     remediation:
       retries: 3
-  values:
-    base:
-      enableCRDTemplates: true
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
