@@ -19,6 +19,7 @@ spec:
         namespace: flux-system
       version: 8.8.2
   interval: 2h
+  timeout: 10m
   install:
     createNamespace: true
     crds: Create
