@@ -21,7 +21,7 @@ spec:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: 1.23.2
+      version: 1.24.2
   interval: 2h
   install:
     createNamespace: true
