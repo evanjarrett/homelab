@@ -29,12 +29,13 @@ spec:
     crds: CreateReplace
   values:
     runtimeClassName: nvidia
-    gpu:
-      enabled: true
-      type: nvidia
-      number: 1
-    models:
-      pull:
-        - llama3.1:8b
-      run:
-        - llama3.1:8b
+    ollama:
+      gpu:
+        enabled: true
+        type: nvidia
+        number: 1
+      models:
+        pull:
+          - llama3.1:8b
+        run:
+          - llama3.1:8b
