@@ -17,4 +17,4 @@ spec:
       backendRefs:
         - name: ollama
           namespace: ollama
-          port: 8080
+          port: 11434
