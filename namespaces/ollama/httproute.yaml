@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ollama
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: ollama-tls-route
+  namespace: ollama
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - "ollama.j5t.io"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: ollama
+          namespace: ollama
+          port: 8080

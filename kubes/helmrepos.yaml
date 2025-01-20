@@ -118,6 +118,15 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
+  name: ollama-helmrepo
+  namespace: flux-system
+spec:
+  url: https://otwld.github.io/ollama-helm/
+  interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
   name: secret-service-helmrepo
   namespace: flux-system
 spec:
