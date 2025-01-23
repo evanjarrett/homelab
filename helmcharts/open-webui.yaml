@@ -23,7 +23,5 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
-    apiService:
-      insecureSkipTLSVerify: false
-    tls:
-      type: cert-manager
+    pipelines:
+      enabled: false
