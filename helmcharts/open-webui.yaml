@@ -25,3 +25,5 @@ spec:
   values:
     pipelines:
       enabled: false
+    ollama:
+      enabled: false
