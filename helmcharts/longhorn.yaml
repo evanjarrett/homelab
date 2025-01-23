@@ -30,12 +30,4 @@ spec:
   values:
     defaulSettings:
       createDefaultDiskLabeledNodes: true
-    longhornManager:
-      nodeSelector:
-        node.longhorn.io/create-default-disk: 'config'
-    longhornDriver:
-      nodeSelector:
-        node.longhorn.io/create-default-disk: 'config'
-    longhornUI:
-      nodeSelector:
-        node.longhorn.io/create-default-disk: 'config'
+
