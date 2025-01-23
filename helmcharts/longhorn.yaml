@@ -37,3 +37,7 @@ spec:
     longhornUI:
       nodeSelector:
         storage.longhorn: "true"
+    persistence:
+      defaultNodeSelector:
+        enable: true
+        selector: "storage.longhorn=true"
