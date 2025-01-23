@@ -25,7 +25,8 @@ spec:
     crds: CreateReplace
   values:
     pipelines:
-      enabled: false
+        enabled: false
     ollama:
-      enabled: false
-    openaiBaseApiUrl: ollama.ollama.svc.cluster.local
+        enabled: false
+    ollamaUrls: 
+        - http://ollama:11434
