@@ -1,29 +1,30 @@
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: open-webui-helmrelease
-  namespace: ollama
-spec:
-  releaseName: open-webui
-  chart:
-    spec:
-      chart: open-webui
-      sourceRef:
-        kind: HelmRepository
-        name: open-webui-helmrepo
-        namespace: flux-system
-      version: 5.4.0
-  interval: 2h
-  timeout: 10m
-  install:
-    createNamespace: true
-    crds: Create
-    remediation:
-      retries: 3
-  upgrade:
-    crds: CreateReplace
-  values:
-    pipelines:
-      enabled: false
-    ollama:
-      enabled: false
+---
+# apiVersion: helm.toolkit.fluxcd.io/v2
+# kind: HelmRelease
+# metadata:
+#   name: open-webui-helmrelease
+#   namespace: ollama
+# spec:
+#   releaseName: open-webui
+#   chart:
+#     spec:
+#       chart: open-webui
+#       sourceRef:
+#         kind: HelmRepository
+#         name: open-webui-helmrepo
+#         namespace: flux-system
+#       version: 5.4.0
+#   interval: 2h
+#   timeout: 10m
+#   install:
+#     createNamespace: true
+#     crds: Create
+#     remediation:
+#       retries: 3
+#   upgrade:
+#     crds: CreateReplace
+#   values:
+#     pipelines:
+#       enabled: false
+#     ollama:
+#       enabled: false
