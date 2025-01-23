@@ -28,16 +28,5 @@ spec:
     remediation:
       retries: 3
   values:
-    longhornManager:
-      nodeSelector:
-        storage.longhorn: "true"
-    longhornDriver:
-      nodeSelector:
-        storage.longhorn: "true"
-    longhornUI:
-      nodeSelector:
-        storage.longhorn: "true"
-    persistence:
-      defaultNodeSelector:
-        enable: true
-        selector: "storage.longhorn=true"
+    defaulSettings:
+      createDefaultDiskLabeledNodes: true
