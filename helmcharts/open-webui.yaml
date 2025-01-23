@@ -28,3 +28,4 @@ spec:
       enabled: false
     ollama:
       enabled: false
+    openaiBaseApiUrl: ollama.ollama.svc.cluster.local
