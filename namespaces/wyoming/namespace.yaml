@@ -6,21 +6,3 @@ metadata:
     pod-security.kubernetes.io/enforce: privileged
     pod-security.kubernetes.io/audit: privileged
     pod-security.kubernetes.io/warn: privileged
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: nvidia-smi-job
-  namespace: wyoming
-spec:
-  schedule: "*/5 * * * *" # Runs every 5 minutes
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: nvidia-smi
-              image: "nvidia/cuda:12.4.1-base-ubuntu20.04"
-              args: ["nvidia-smi"]
-          runtimeClassName: nvidia
