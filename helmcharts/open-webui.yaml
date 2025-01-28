@@ -30,3 +30,5 @@ spec:
         enabled: false
     ollamaUrls: 
         - http://ollama:11434
+    image:
+      tag: 0.5.7
