@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: victoria-metrics-helmrepo
         namespace: flux-system
-      version: 0.17.2
+      version: 0.17.3
   interval: 2h
   install:
     createNamespace: true
