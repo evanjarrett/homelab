@@ -85,7 +85,7 @@ spec:
   - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 10Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -136,7 +136,7 @@ spec:
             limits:
               memory: "12Gi"
               cpu: "10"
-              gpu.intel.com/i915: "2"
+              gpu.intel.com/i915: "1"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
