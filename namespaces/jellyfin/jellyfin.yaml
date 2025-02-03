@@ -151,9 +151,7 @@ spec:
         persistentVolumeClaim:
           claimName: jellyfin-cache-pvc
       - name: jellyfin-transcode
-        emptyDir:
-          medium: Memory
-          sizeLimit: 12Gi
+        emptyDir: {}
       - name: jellyfin-config
         persistentVolumeClaim:
           claimName: jellyfin-config-pvc
