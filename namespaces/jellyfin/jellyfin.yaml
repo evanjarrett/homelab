@@ -159,5 +159,5 @@ spec:
           claimName: jellyfin-config-pvc
       - name: jellyfin-media
         nfs:
-          server: truenas.local
+          server: 192.168.0.58
           path: /mnt/Pool-1.18.6/movies
