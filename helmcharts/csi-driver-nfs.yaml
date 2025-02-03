@@ -19,4 +19,5 @@ spec:
     remediation:
       retries: 3
   values:
-    installCRDs: true
+    storageClass:
+      create: true
