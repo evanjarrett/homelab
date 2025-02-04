@@ -106,7 +106,8 @@ spec:
         name: jellyfin
     spec:
       nodeSelector:
-        intel.feature.node.kubernetes.io/gpu: 'true'
+        feature.node.kubernetes.io/rk3588: 'true'
+        #intel.feature.node.kubernetes.io/gpu: 'true'
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -135,15 +136,14 @@ spec:
           resources:
             limits:
               memory: "12Gi"
-              cpu: "10"
-              gpu.intel.com/i915: "1"
+              cpu: "4"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
           - name: jellyfin-config
             mountPath: /config
           - name: jellyfin-transcode
-            mountPath: /transcode
+            mountPath: /transcodes
           - name: jellyfin-media
             mountPath: /media
       volumes:
