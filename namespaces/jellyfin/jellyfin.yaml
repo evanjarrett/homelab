@@ -106,8 +106,8 @@ spec:
         name: jellyfin
     spec:
       nodeSelector:
-        feature.node.kubernetes.io/rk3588: 'true'
-        #intel.feature.node.kubernetes.io/gpu: 'true'
+        #feature.node.kubernetes.io/rk3588: 'true'
+        intel.feature.node.kubernetes.io/gpu: 'true'
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
