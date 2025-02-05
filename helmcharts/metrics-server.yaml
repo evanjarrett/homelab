@@ -24,7 +24,7 @@ spec:
     crds: CreateReplace
   values:
     apiService:
-      insecureSkipTLSVerify: true
-    tls:
-      type: cert-manager
+      insecureSkipTLSVerify: false
+    # tls:
+    #   type: cert-manager
     replicas: 3
