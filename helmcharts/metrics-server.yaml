@@ -26,5 +26,5 @@ spec:
     apiService:
       insecureSkipTLSVerify: false
     tls:
-      type: helm
+      type: metrics-server
     replicas: 3
