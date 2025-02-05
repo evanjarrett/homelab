@@ -25,6 +25,6 @@ spec:
   values:
     apiService:
       insecureSkipTLSVerify: false
-    # tls:
-    #   type: cert-manager
+    tls:
+      type: cert-manager
     replicas: 3
