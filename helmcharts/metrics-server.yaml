@@ -27,3 +27,4 @@ spec:
       insecureSkipTLSVerify: false
     tls:
       type: cert-manager
+    replicas: 3
