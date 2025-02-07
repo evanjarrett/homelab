@@ -31,4 +31,4 @@ spec:
     ollamaUrls: 
         - http://ollama:11434
     image:
-      tag: 0.5.7
+      tag: 0.5.10
