@@ -152,7 +152,7 @@ spec:
             limits:
               memory: "12Gi"
               cpu: "4"
-              gpu.intel.com/i915: "2"
+              gpu.intel.com/i915: "3"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
@@ -167,7 +167,8 @@ spec:
         persistentVolumeClaim:
           claimName: jellyfin-cache-pvc
       - name: jellyfin-transcode
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: jellyfin-transcode-pvc
       - name: jellyfin-config
         persistentVolumeClaim:
           claimName: jellyfin-config-pvc
