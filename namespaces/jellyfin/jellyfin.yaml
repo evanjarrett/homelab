@@ -87,6 +87,19 @@ spec:
     requests:
       storage: 10Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jellyfin-transcode-pvc
+  namespace: jellyfin
+spec:
+  storageClassName: longhorn
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,12 +121,12 @@ spec:
       nodeSelector:
         #feature.node.kubernetes.io/rk3588: 'true'
         intel.feature.node.kubernetes.io/gpu: 'true'
-      # securityContext:
-      #   runAsUser: 1000
-      #   runAsGroup: 1000
-      #   fsGroup: 1000
-      #   supplementalGroups:
-      #     - 226
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        supplementalGroups:
+          - 1000
       containers:
         - name: "jellyfin"
           image: jellyfin/jellyfin
@@ -137,7 +150,7 @@ spec:
             limits:
               memory: "12Gi"
               cpu: "4"
-              gpu.intel.com/i915: 2
+              gpu.intel.com/i915: "2"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
