@@ -152,7 +152,7 @@ spec:
             limits:
               memory: "12Gi"
               cpu: "4"
-              gpu.intel.com/i915: "3"
+              gpu.intel.com/i915: "2"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
