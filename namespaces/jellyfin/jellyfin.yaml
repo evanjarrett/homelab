@@ -118,16 +118,13 @@ spec:
           - 1000
       containers:
         - name: intel-gpu-top
-          image: ubuntu:24.04 # Use Ubuntu 24.04 as the base image
+          image: ghcr.io/xpenology-community/docker-intel-gpu-tools:latest # Use Ubuntu 24.04 as the base image
           command: ["intel-gpu-top"]
           resources:
             limits:
               memory: "2Gi"
               cpu: "1"
               gpu.intel.com/i915: "1" # Request Intel GPU resource
-          volumeMounts:
-          - name: shared-bin
-            mountPath: /usr/local/bin
         - name: "jellyfin"
           image: jellyfin/jellyfin
           ports:
@@ -160,19 +157,6 @@ spec:
             mountPath: /transcode
           - name: jellyfin-media
             mountPath: /media
-      initContainers:
-      - name: install-intel-gpu-tools
-        image: ubuntu:24.04 # Use Ubuntu 24.04 for the init container
-        command:
-        - /bin/bash
-        - -c
-        - |
-          apt-get update && \
-          apt-get install -y intel-gpu-tools && \
-          cp /usr/bin/intel-gpu-top /shared-bin/
-        volumeMounts:
-        - name: shared-bin
-          mountPath: /shared-bin
       volumes:
       - name: shared-bin
         emptyDir: {}
