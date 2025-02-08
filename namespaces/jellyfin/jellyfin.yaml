@@ -128,9 +128,6 @@ spec:
           volumeMounts:
           - name: shared-bin
             mountPath: /usr/local/bin
-          securityContext:
-            privileged: true # Required for GPU access
-        
         - name: "jellyfin"
           image: jellyfin/jellyfin
           ports:
@@ -176,8 +173,6 @@ spec:
         volumeMounts:
         - name: shared-bin
           mountPath: /shared-bin
-        securityContext:
-          privileged: true # Required for installing packages
       volumes:
       - name: shared-bin
         emptyDir: {}
