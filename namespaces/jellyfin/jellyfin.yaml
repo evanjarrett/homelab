@@ -87,19 +87,6 @@ spec:
     requests:
       storage: 10Gi
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: jellyfin-transcode-pvc
-  namespace: jellyfin
-spec:
-  storageClassName: longhorn
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 100Gi
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -130,6 +117,20 @@ spec:
         supplementalGroups:
           - 1000
       containers:
+        - name: intel-gpu-top
+          image: ubuntu:24.04 # Use Ubuntu 24.04 as the base image
+          command: ["intel-gpu-top"]
+          resources:
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+              gpu.intel.com/i915: "1" # Request Intel GPU resource
+          volumeMounts:
+          - name: shared-bin
+            mountPath: /usr/local/bin
+          securityContext:
+            privileged: true # Required for GPU access
+        
         - name: "jellyfin"
           image: jellyfin/jellyfin
           ports:
@@ -152,7 +153,7 @@ spec:
             limits:
               memory: "12Gi"
               cpu: "4"
-              gpu.intel.com/i915: "2"
+              gpu.intel.com/i915: "1"
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
@@ -162,13 +163,29 @@ spec:
             mountPath: /transcode
           - name: jellyfin-media
             mountPath: /media
+      initContainers:
+      - name: install-intel-gpu-tools
+        image: ubuntu:24.04 # Use Ubuntu 24.04 for the init container
+        command:
+        - /bin/bash
+        - -c
+        - |
+          apt-get update && \
+          apt-get install -y intel-gpu-tools && \
+          cp /usr/bin/intel-gpu-top /shared-bin/
+        volumeMounts:
+        - name: shared-bin
+          mountPath: /shared-bin
+        securityContext:
+          privileged: true # Required for installing packages
       volumes:
+      - name: shared-bin
+        emptyDir: {}
       - name: jellyfin-cache
         persistentVolumeClaim:
           claimName: jellyfin-cache-pvc
       - name: jellyfin-transcode
-        persistentVolumeClaim:
-          claimName: jellyfin-transcode-pvc
+        emptyDir: {}
       - name: jellyfin-config
         persistentVolumeClaim:
           claimName: jellyfin-config-pvc
