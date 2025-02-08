@@ -118,8 +118,8 @@ spec:
           - 1000
       containers:
         - name: intel-gpu-top
-          image: ghcr.io/xpenology-community/docker-intel-gpu-tools:latest # Use Ubuntu 24.04 as the base image
-          command: ["intel_gpu_top"]
+          image: ghcr.io/xpenology-community/docker-intel-gpu-tools:latest
+          command: ["/bin/bash", "-c", "while true; do sleep 30; done"]
           resources:
             limits:
               memory: "2Gi"
