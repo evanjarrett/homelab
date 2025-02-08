@@ -131,6 +131,8 @@ spec:
               gpu.intel.com/i915: "1" # Request Intel GPU resource
           securityContext:
             privileged: true # Required for PMU access
+            runAsUser: 0
+            runAsGroup: 0
             capabilities:
               add: ["CAP_PERFMON"] # Add CAP_PERFMON capability
         - name: "jellyfin"
