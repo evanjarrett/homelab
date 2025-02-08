@@ -173,6 +173,8 @@ spec:
         volumeMounts:
         - name: shared-bin
           mountPath: /shared-bin
+        securityContext:
+          privileged: true # Required for installing packages
       volumes:
       - name: shared-bin
         emptyDir: {}
