@@ -125,6 +125,8 @@ spec:
               memory: "2Gi"
               cpu: "1"
               gpu.intel.com/i915: "1" # Request Intel GPU resource
+          securityContext:
+            privileged: true # Required for PMU access
         - name: "jellyfin"
           image: jellyfin/jellyfin
           ports:
