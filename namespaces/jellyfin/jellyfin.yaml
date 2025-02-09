@@ -114,12 +114,6 @@ spec:
       nodeSelector:
         #feature.node.kubernetes.io/rk3588: 'true'
         intel.feature.node.kubernetes.io/gpu: 'true'
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        supplementalGroups:
-          - 1000
       containers:
         - name: intel-gpu-top
           image: ghcr.io/xpenology-community/docker-intel-gpu-tools:latest
@@ -133,8 +127,6 @@ spec:
             privileged: true # Required for PMU access
             runAsUser: 0
             runAsGroup: 0
-            capabilities:
-              add: ["CAP_PERFMON"] # Add CAP_PERFMON capability
         - name: "jellyfin"
           image: jellyfin/jellyfin
           ports:
@@ -158,6 +150,8 @@ spec:
               memory: "12Gi"
               cpu: "4"
               gpu.intel.com/i915: "1"
+          securityContext:
+            privileged: true
           volumeMounts:
           - name: jellyfin-cache
             mountPath: /cache
