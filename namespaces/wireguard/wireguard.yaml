@@ -26,7 +26,7 @@ spec:
       backendRefs:
         - name: wg-easy-http
           namespace: wireguard
-          port: 80
+          port: 51821
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -128,7 +128,7 @@ spec:
     - name: http
       port: 51821
       protocol: TCP
-      targetPort: http
+      targetPort: 51821
   selector:
     app.kubernetes.io/name: wg-easy
   type: ClusterIP
