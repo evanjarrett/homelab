@@ -76,7 +76,7 @@ spec:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: 1.24.3
+      version: 1.25.0
   interval: 2h
   dependsOn:
     - name: istiod-helmrelease
