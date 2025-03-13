@@ -23,6 +23,8 @@ spec:
   values:
     image:
       tag: 0.15.0
+    env:
+      LIBVA_DRIVER_NAME: i965
     envFromSecrets:
       - frigate-secret
     coral:
@@ -46,6 +48,8 @@ spec:
         gpu.intel.com/i915: 1
     securityContext:
       privileged: true
+      capabilities:
+        add: ["PERFMON"]
     nodeSelector:
       feature.node.kubernetes.io/coral.count: "2"
     persistence:
