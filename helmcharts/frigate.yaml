@@ -42,6 +42,8 @@ spec:
         memory: "8Gi"
         cpu: "4"
         gpu.intel.com/i915: 1
+    securityContext:
+      privileged: true
     nodeSelector:
       feature.node.kubernetes.io/coral.count: "2"
     persistence:
