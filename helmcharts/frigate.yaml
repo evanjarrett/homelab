@@ -21,6 +21,8 @@ spec:
   uninstall:
     disableHooks: true
   values:
+    image:
+      tag: 0.15.0
     envFromSecrets:
       - frigate-secret
     coral:
@@ -100,7 +102,7 @@ spec:
           days: 0
           mode: all
       ffmpeg:
-        hwaccel_args: preset-vaapi
+        hwaccel_args: preset-intel-qsv-h264
         output_args:
           record: preset-record-generic-audio-copy
       cameras:
