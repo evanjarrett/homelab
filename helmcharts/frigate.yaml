@@ -37,11 +37,11 @@ spec:
         name: coral-dev-two
     resources:
       requests:
-        memory: "2Gi"
+        memory: "8Gi"
         cpu: "4"
         gpu.intel.com/i915: 1
       limits:
-        memory: "8Gi"
+        memory: "16Gi"
         cpu: "4"
         gpu.intel.com/i915: 1
     securityContext:
@@ -81,6 +81,14 @@ spec:
         coral2:
           type: edgetpu
           device: pci:1
+      semantic_search:
+        enabled: True
+        model_size: large
+      genai:
+        enabled: True
+        provider: ollama
+        base_url: http://ollama.ollama.svc.cluster.local:11434
+        model: llava:7b
       objects:
         track:
           - person
