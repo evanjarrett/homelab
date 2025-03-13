@@ -23,8 +23,6 @@ spec:
   values:
     image:
       tag: 0.15.0
-    env:
-      LIBVA_DRIVER_NAME: i965
     envFromSecrets:
       - frigate-secret
     coral:
