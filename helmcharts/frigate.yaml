@@ -84,6 +84,7 @@ spec:
       semantic_search:
         enabled: True
         model_size: large
+        reindex: True
       genai:
         enabled: True
         provider: ollama
