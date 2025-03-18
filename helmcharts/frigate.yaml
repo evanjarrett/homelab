@@ -82,11 +82,11 @@ spec:
           type: edgetpu
           device: pci:1
       semantic_search:
-        enabled: True
+        enabled: true
         model_size: large
-        reindex: False
+        reindex: false
       genai:
-        enabled: True
+        enabled: true
         provider: ollama
         base_url: http://ollama.ollama.svc.cluster.local:11434
         model: llava:7b
@@ -114,7 +114,7 @@ spec:
             - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_DRIVEWAY}:554/h264Preview_01_main
             - "ffmpeg:driveway#video=h264#audio=aac"
       record:
-        enabled: True
+        enabled: true
         retain:
           days: 0
           mode: all
@@ -131,14 +131,21 @@ spec:
                 - detect
                 - record
           detect:
-            enabled: True
+            enabled: true
           snapshots:
-            enabled: True
+            enabled: true
             required_zones:
               - driveway-and-street
           zones:
             driveway-and-street:
               coordinates: 896,0,896,512,0,512,0,174,480,24,490,0
+          objects:
+            filters:
+              car:
+                mask: 0.143,0.071,0.333,0.016,0.274,0,0.139,0
+          review:
+            alerts:
+              required_zones: driveway-and-street
         driveway:
           ffmpeg:
             inputs:
@@ -147,9 +154,9 @@ spec:
                 - detect
                 - record
           detect:
-            enabled: True
+            enabled: true
           snapshots:
-            enabled: True
+            enabled: true
             required_zones:
               - front_house
           zones:
