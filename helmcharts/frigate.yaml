@@ -169,3 +169,6 @@ spec:
                 mask: 1350,500,1300,500,1300,400,1350,400
               car:
                 min_area: 10000
+          review:
+            alerts:
+              required_zones: front_house
