@@ -142,7 +142,9 @@ spec:
           objects:
             filters:
               car:
-                mask: 0.143,0.071,0.333,0.016,0.274,0,0.139,0
+                mask: 0,0.34,0.538,0.045,0.343,0,0,0
+          motion:
+            mask: 0.141,0,0.143,0.091,0.241,0.05,0.239,0
           review:
             alerts:
               required_zones: driveway-and-street
