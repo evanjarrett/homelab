@@ -70,7 +70,7 @@ spec:
         topic_prefix: frigate
         client_id: frigate
         user: mqtt
-        password: "{FRIGATE_MQTT_PASSWORD}"
+        password: '{FRIGATE_MQTT_PASSWORD}'
         stats_interval: 60
       ui:
         timezone: America/Chicago
@@ -121,10 +121,10 @@ spec:
         streams:
           4kcamera:
             - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_4K}:554/h264Preview_01_sub
-            - "ffmpeg:4kcamera#video=h264#audio=aac"
+            - ffmpeg:4kcamera#video=h264#audio=aac
           driveway:
             - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_DRIVEWAY}:554/h264Preview_01_main
-            - "ffmpeg:driveway#video=h264#audio=aac"
+            - ffmpeg:driveway#video=h264#audio=aac
       record:
         enabled: true
         retain:
@@ -138,10 +138,10 @@ spec:
         4kcamera:
           ffmpeg:
             inputs:
-            - path: rtsp://127.0.0.1:8554/4kcamera
-              roles:
-                - detect
-                - record
+              - path: rtsp://127.0.0.1:8554/4kcamera
+                roles:
+                  - detect
+                  - record
           detect:
             enabled: true
           snapshots:
@@ -156,7 +156,11 @@ spec:
           objects:
             filters:
               car:
-                mask: 0,0.34,0.538,0.045,0.343,0,0,0
+                mask:
+                  - 0,0.34,0.538,0.045,0.343,0,0,0
+                  - 0.887,0.001,0.883,0.136,0.944,0.165,0.95,0.008
+              waste_bin:
+                mask: 0.538,0.049,0.608,0.08,0.609,0.004,0.542,0.003
           motion:
             mask: 0.141,0,0.143,0.091,0.241,0.05,0.239,0
           review:
@@ -165,10 +169,10 @@ spec:
         driveway:
           ffmpeg:
             inputs:
-            - path: rtsp://127.0.0.1:8554/driveway
-              roles:
-                - detect
-                - record
+              - path: rtsp://127.0.0.1:8554/driveway
+                roles:
+                  - detect
+                  - record
           detect:
             enabled: true
           snapshots:
@@ -176,8 +180,9 @@ spec:
             required_zones:
               - front_house
           zones:
-            front_house:        
-              coordinates: 0,1,1,1,1,0.678,1,0.391,0.979,0.385,0.917,0.369,0.867,0.324,0.864,0.18,0.664,0.153,0.451,0.155,0.205,0.186
+            front_house:
+              coordinates: 
+                0,1,1,1,1,0.678,1,0.391,0.979,0.385,0.917,0.369,0.867,0.324,0.864,0.18,0.664,0.153,0.451,0.155,0.205,0.186
               inertia: 3
               loitering_time: 0
           objects:
@@ -187,6 +192,11 @@ spec:
                 mask: 0.493,0.315,0.539,0.304,0.54,0.191,0.49,0.193
               car:
                 min_area: 10000
+                mask:
+                  - 0.345,0.994,0.29,0.824,0.245,0.591,0.237,0.478,0.208,0.187,0.002,0.422,0.002,0.997
+                  - 0.837,0.175,0.832,0.414,0.998,0.524,1,0.214
+              waste_bin:
+                mask: 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
           review:
             alerts:
               required_zones: front_house
