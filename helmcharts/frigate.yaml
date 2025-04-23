@@ -94,7 +94,7 @@ spec:
         model: llava:7b
         prompt: "First, provide a brief visual description of the {label} captured by this residential security camera (size, color, shape, and notable features). Then analyze its presence in this neighborhood context - whether it appears to belong in this setting, how it came to be there, and any potential security implications. Consider its positioning relative to the property, any movement or changes over time, interactions with people/animals/vehicles, and whether its presence appears routine, expected, or unusual for a residential area. Note any behaviors or characteristics that might be relevant from a home security perspective."
         object_prompts:
-          person: "First, provide a brief description of the person captured by this residential security camera (clothing colors/type, approximate age range, distinguishing features visible). Then: If on public areas (sidewalk/street): Note normal activities like walking or jogging. If on private property (driveway/yard/porch): Identify what their activity is for example, delivering package, gardening, contruction, just visiting, etc. Summarize this as if its short notification message."
+          person: "You are presented with images from a residential security camera. Provide for me a short description of the person you see, along with what activity they are likely doing. Keep it brief so that the message can be used in notifcations. Don't ask for follow up questions."
           car: "First, provide a brief description of the {label} captured by this residential security camera (color, make/model if identifiable, size/type). Then analyze its relationship to the residence - whether it appears to belong to the household, visitors, delivery services, or is unfamiliar to the area. Note parking duration, positioning relative to driveways/curbs, occupant activities, and any unusual patterns that might be relevant from a neighborhood security perspective."
           cat: "First, provide a brief description of the {label} captured by this residential security camera (size, color/markings, breed if identifiable). Then determine if it appears to be a household pet, a neighbor's pet, or wildlife. Focus on whether its presence is routine or unusual for this setting, any interaction with property, and any behaviors that might be concerning for residents (aggression, property damage, etc.)."
           dog: "First, provide a brief description of the {label} captured by this residential security camera (size, color/markings, breed if identifiable). Then determine if it appears to be a household pet, a neighbor's pet, or wildlife. Focus on whether its presence is routine or unusual for this setting, any interaction with property, and any behaviors that might be concerning for residents (aggression, property damage, etc.)."
@@ -180,7 +180,7 @@ spec:
             filters:
               person:
                 min_area: 1000
-                mask: 1350,500,1300,500,1300,400,1350,400
+                mask: 0.493,0.315,0.539,0.304,0.54,0.191,0.49,0.193
               car:
                 min_area: 10000
           review:
