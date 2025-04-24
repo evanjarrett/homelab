@@ -127,8 +127,6 @@ spec:
           driveway:
             - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_DRIVEWAY}:554/h264Preview_01_main
             - ffmpeg:driveway#video=h264#audio=aac
-          catcam:
-            - kasa://{FRIGATE_KASA_USERNAME}:{FRIGATE_KASA_PASSWORD}@{FRIGATE_CAMERA_KASA1}:19443/https/stream/mixed
       record:
         enabled: true
         retain:
@@ -204,14 +202,3 @@ spec:
           review:
             alerts:
               required_zones: front_house
-        catcam:
-          ffmpeg:
-            inputs:
-              - path: rtsp://127.0.0.1:8554/catcam
-                roles:
-                  - detect
-                  - record
-          detect:
-            enabled: true
-          snapshots:
-            enabled: true
