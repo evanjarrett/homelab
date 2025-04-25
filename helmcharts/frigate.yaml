@@ -118,6 +118,8 @@ spec:
           car:
             min_score: 0.6
           person:
+            min_score: 0.65
+          dog:
             min_score: 0.6
       go2rtc:
         streams:
