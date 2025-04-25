@@ -63,6 +63,7 @@ spec:
         size: 100Gi
         skipuninstall: true
     config: |
+      version: 0.15-1
       mqtt:
         enabled: true
         host: mqtt.proxy.svc.cluster.local
