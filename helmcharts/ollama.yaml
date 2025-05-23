@@ -36,7 +36,6 @@ spec:
         number: 1
       models:
         pull:
-          - llama3.1:8b
-          - llava:7b
+          - llama3.2-vision:11b
         run:
-          - llama3.1:8b
+          - llama3.2-vision:11b

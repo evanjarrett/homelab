@@ -92,7 +92,7 @@ spec:
         enabled: true
         provider: ollama
         base_url: http://ollama.ollama.svc.cluster.local:11434
-        model: llava:7b
+        model: llama3.2-vision:11b
         prompt: "You are presented with images from a residential security camera. Provide for me a short description of the {label} you see, along with what activity they are likely doing. Keep it brief so that the message can be used in notifications. Don't ask for follow up questions."
         object_prompts:
           person: "You are presented with images from a residential security camera. Provide for me a short description of the {label} you see, along with what activity they are likely doing. Keep it brief so that the message can be used in notifications. Don't ask for follow up questions. Please refrain from using phrases like this image in your answer."
