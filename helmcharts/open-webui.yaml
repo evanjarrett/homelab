@@ -37,9 +37,12 @@ spec:
       s3:
         endpointUrl: https://gateway.storjshare.io
         bucket: openwebui
+        accessKey: jw6yimpc7dxhu2mycfbdy6eboexa
+        secretKeyExistingSecret: open-webui-secret
+        secretKeyExistingSecretKey: S3_SECRET_ACCESS_KEY
     commonEnvVars:
       - name: DEFAULT_MODELS
-        values: gemma3:4b
+        values: "gemma3:4b"
       - name: RAG_EMBEDDING_ENGINE
         value: ollama
       - name: RAG_EMBEDDING_MODEL
