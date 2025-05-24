@@ -28,6 +28,8 @@ spec:
         enabled: false
     ollama:
         enabled: false
+    postgresql:
+        enabled: true
     ollamaUrls: 
         - http://ollama:11434
     persistence:
@@ -35,6 +37,17 @@ spec:
       s3:
         endpointUrl: https://gateway.storjshare.io
         bucket: openwebui
-        accessKey: jw6yimpc7dxhu2mycfbdy6eboexa
-        secretKeyExistingSecret: storj
-        secretKeyExistingSecretKey: secret
+    commonEnvVars:
+      - name: DEFAULT_MODELS
+        values: gemma3:4b
+      - name: RAG_EMBEDDING_ENGINE
+        value: ollama
+      - name: RAG_EMBEDDING_MODEL
+        value: nomic-embed-text
+      - name: ENABLE_WEB_SEARCH
+        value: true
+      - name: WEB_SEARCH_ENGINE
+        value: duckduckgo
+    extraEnvFrom:
+      - secretRef:
+          name: open-webui-secret
