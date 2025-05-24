@@ -36,5 +36,5 @@ spec:
         endpointUrl: https://gateway.storjshare.io
         bucket: openwebui
         accessKey: jw6yimpc7dxhu2mycfbdy6eboexa
-        secretKeyExistingSecret: stroj
+        secretKeyExistingSecret: storj
         secretKeyExistingSecretKey: secret
