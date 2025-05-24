@@ -45,7 +45,7 @@ spec:
       - name: RAG_EMBEDDING_MODEL
         value: nomic-embed-text
       - name: ENABLE_WEB_SEARCH
-        value: true
+        value: "true"
       - name: WEB_SEARCH_ENGINE
         value: duckduckgo
     extraEnvFrom:
