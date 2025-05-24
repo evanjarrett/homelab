@@ -30,3 +30,11 @@ spec:
         enabled: false
     ollamaUrls: 
         - http://ollama:11434
+    persistence:
+      provider: s3
+      s3:
+        endpointUrl: https://gateway.storjshare.io
+        bucket: openwebui
+        accessKey: jw6yimpc7dxhu2mycfbdy6eboexa
+        secretKeyExistingSecret: stroj
+        secretKeyExistingSecretKey: secret
