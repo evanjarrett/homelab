@@ -42,7 +42,7 @@ spec:
         secretKeyExistingSecretKey: S3_SECRET_ACCESS_KEY
     commonEnvVars:
       - name: DEFAULT_MODELS
-        value: gemma3:4b
+        value: PetrosStav/gemma3-tools:4b
       - name: PDF_EXTRACT_IMAGES
         value: "true"
       - name: RAG_OLLAMA_BASE_URL

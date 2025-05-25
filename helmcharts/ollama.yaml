@@ -36,7 +36,7 @@ spec:
         number: 1
       models:
         pull:
-          - gemma3:4b
+          - PetrosStav/gemma3-tools:4b
           - nomic-embed-text
         run:
-          - gemma3:4b
+          - PetrosStav/gemma3-tools:4b
