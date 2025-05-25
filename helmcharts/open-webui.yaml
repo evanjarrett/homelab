@@ -42,7 +42,11 @@ spec:
         secretKeyExistingSecretKey: S3_SECRET_ACCESS_KEY
     commonEnvVars:
       - name: DEFAULT_MODELS
-        values: "gemma3:4b"
+        value: gemma3:4b
+      - name: PDF_EXTRACT_IMAGES
+        value: "true"
+      - name: RAG_OLLAMA_BASE_URL
+        value: http://ollama:11434
       - name: RAG_EMBEDDING_ENGINE
         value: ollama
       - name: RAG_EMBEDDING_MODEL
