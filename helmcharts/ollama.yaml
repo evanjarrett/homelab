@@ -29,9 +29,6 @@ spec:
     crds: CreateReplace
   values:
     runtimeClassName: nvidia
-    extraEnv:
-      - name: OLLAMA_CONTEXT_LENGTH
-        value: "16384"
     ollama:
       gpu:
         enabled: true
