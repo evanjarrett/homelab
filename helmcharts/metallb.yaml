@@ -21,7 +21,7 @@ spec:
         kind: HelmRepository
         name: metallb-helmrepo
         namespace: flux-system
-      version: 0.14.9
+      version: 0.15.2
   interval: 2h
   install:
     createNamespace: true
