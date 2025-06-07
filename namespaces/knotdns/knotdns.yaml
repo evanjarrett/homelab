@@ -44,11 +44,14 @@ spec:
               mountPath: /config
       containers:
         - name: knotdns
-          image: docker.io/cznic/knot:latest
+          image: docker.io/cznic/knot:v3.4.7
           resources:
-            limits:
+            requests:
               memory: "48Mi"
               cpu: "100m"
+            limits:
+              memory: "100Mi"
+              cpu: "200m"
           args:
             - "/sbin/knotd"
           ports:
