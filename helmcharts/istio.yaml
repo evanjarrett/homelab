@@ -21,7 +21,7 @@ spec:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: 1.26.1
+      version: 1.26.2
   interval: 2h
   install:
     createNamespace: true
@@ -47,7 +47,7 @@ spec:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: 1.26.1
+      version: 1.26.2
   interval: 2h
   dependsOn:
     - name: istio-helmrelease
@@ -76,7 +76,7 @@ spec:
         kind: HelmRepository
         name: istio-helmrepo
         namespace: flux-system
-      version: 1.26.1
+      version: 1.26.2
   interval: 2h
   dependsOn:
     - name: istiod-helmrelease
