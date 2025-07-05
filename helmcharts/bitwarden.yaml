@@ -30,5 +30,5 @@ spec:
     containers:
       manager:
         image:
-          repository: ghcr.io/evanjarrett/sm-operator
+          repository: ghcr.io/bitwarden/sm-operator
           tag: dev
