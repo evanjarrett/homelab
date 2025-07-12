@@ -47,11 +47,11 @@ spec:
           image: docker.io/cznic/knot:v3.4.7
           resources:
             requests:
-              memory: "48Mi"
-              cpu: "100m"
+              memory: 48Mi
+              cpu: 100m
             limits:
-              memory: "100Mi"
-              cpu: "200m"
+              memory: 128Mi
+              cpu: 200m
           args:
             - "/sbin/knotd"
           ports:

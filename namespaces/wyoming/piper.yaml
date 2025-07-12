@@ -17,9 +17,12 @@ spec:
         - name: piper
           image: docker.io/rhasspy/wyoming-piper:latest
           resources:
+            requests:
+              memory: 1Gi
+              cpu: 1000m
             limits:
               memory: 2Gi
-              cpu: "4"
+              cpu: 4000m
           args:
             - --voice
             - en_US-lessac-medium

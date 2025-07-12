@@ -37,12 +37,12 @@ spec:
         name: coral-dev-two
     resources:
       requests:
-        memory: "8Gi"
-        cpu: "4"
+        memory: 8Gi
+        cpu: 4000m
         gpu.intel.com/i915: 1
       limits:
-        memory: "16Gi"
-        cpu: "4"
+        memory: 16Gi
+        cpu: 4000m
         gpu.intel.com/i915: 1
     securityContext:
       privileged: true

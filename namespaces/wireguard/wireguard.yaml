@@ -65,9 +65,12 @@ spec:
               name: http
               protocol: TCP
           resources:
+            requests:
+              memory: 128Mi
+              cpu: 500m
             limits:
-              memory: "1G"
-              cpu: "1"
+              memory: 1G
+              cpu: 1000m
           # Use the http server for pod health checks
           livenessProbe:
             failureThreshold: 3
