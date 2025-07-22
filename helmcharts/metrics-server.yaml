@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: metrics-server-helmrepo
         namespace: flux-system
-      version: 3.12.2
+      version: 3.13.0
   interval: 2h
   timeout: 10m
   install:
