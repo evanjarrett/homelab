@@ -105,10 +105,31 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
+        - name: pdsadmin-sidecar
+          image: curlimages/curl:latest
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              curl -o /shared/pdsadmin.sh https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
+              chmod +x /shared/pdsadmin.sh
+              tail -f /dev/null
+          volumeMounts:
+            - name: shared-scripts
+              mountPath: /shared
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 16Mi
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: pds-storage-claim
+        - name: shared-scripts
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
