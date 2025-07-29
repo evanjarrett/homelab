@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: pds-tls-route
+  namespace: atproto
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - "jarrett.app"
+    - "pds.j5t.io"
+  rules:
+    - backendRefs:
+        - name: atproto-pds
+          namespace: atproto
+          port: 3000
