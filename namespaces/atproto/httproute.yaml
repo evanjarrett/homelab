@@ -8,8 +8,8 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
-    - "jarrett.app"
-    - "pds.j5t.io"
+    - jarrett.app
+    - pds.j5t.io
   rules:
     - backendRefs:
         - name: atproto-pds

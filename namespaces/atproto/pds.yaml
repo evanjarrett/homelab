@@ -43,7 +43,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: PDS_HOSTNAME
-              value: "pds.j5t.io"
+              value: jarrett.app
             - name: PDS_JWT_SECRET
               valueFrom:
                 secretKeyRef:

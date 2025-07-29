@@ -36,6 +36,17 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: jarrett-net-full-tls
+    - name: jarrettapp
+      hostname: "*.jarrett.app"
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: jarrett-app-full-tls
     - name: jarrettappfull
       hostname: "jarrett.app"
       port: 443
