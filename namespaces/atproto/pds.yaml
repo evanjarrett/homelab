@@ -87,8 +87,8 @@ spec:
           args:
             - -c
             - |
-              curl -o /shared/pdsadmin.sh https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
-              chmod +x /shared/pdsadmin.sh
+              curl -o /usr/local/bin/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
+              chmod +x /usr/local/bin/pdsadmin
               tail -f /dev/null
           envFrom:
             - configMapRef:
