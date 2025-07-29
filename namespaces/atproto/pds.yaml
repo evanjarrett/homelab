@@ -90,6 +90,8 @@ spec:
               apk add --no-cache curl bash
               curl -o /usr/local/bin/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
               chmod +x /usr/local/bin/pdsadmin
+              mkdir -p /pds
+              touch /pds/pds.env
               tail -f /dev/null
           envFrom:
             - configMapRef:
