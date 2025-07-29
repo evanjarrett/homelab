@@ -81,12 +81,13 @@ spec:
             requests:
               cpu: 100m
               memory: 128Mi
-        - name: pdsadmin-sidecar
-          image: curlimages/curl:latest
+        - name: pdsadmin
+          image: alpine:latest
           command: ["/bin/sh"]
           args:
             - -c
             - |
+              apk add --no-cache curl bash
               curl -o /usr/local/bin/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
               chmod +x /usr/local/bin/pdsadmin
               tail -f /dev/null
