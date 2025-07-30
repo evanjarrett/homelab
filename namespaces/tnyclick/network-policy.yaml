@@ -57,10 +57,4 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external HTTPS traffic (for PDS federation)
-  - to: []
-    ports:
-    - protocol: TCP
-      port: 443
-    - protocol: TCP
-      port: 80
+  # No external access needed - tnyclick just serves images and redirects

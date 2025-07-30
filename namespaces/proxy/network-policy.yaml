@@ -57,10 +57,18 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external HTTPS traffic (for PDS federation)
+  # Allow access to internal network (reverse proxy to internal services)
   - to: []
     ports:
     - protocol: TCP
       port: 443
     - protocol: TCP
       port: 80
+    - protocol: TCP
+      port: 8123  # Home Assistant
+    - protocol: TCP
+      port: 5000  # Synology
+    - protocol: TCP
+      port: 8080  # Various web UIs
+    - protocol: TCP
+      port: 8081  # Various web UIs

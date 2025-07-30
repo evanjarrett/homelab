@@ -44,8 +44,14 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external HTTPS for zone updates/DNSSEC
-  - to: []
+  # Allow external internet but block internal networks (for zone updates/DNSSEC)
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 192.168.0.0/16
+        - 10.0.0.0/8
+        - 172.16.0.0/12
     ports:
     - protocol: TCP
       port: 443
