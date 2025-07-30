@@ -20,7 +20,14 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - website
+              - proxy
       tls:
         mode: Terminate
         certificateRefs:
@@ -31,7 +38,13 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - website
       tls:
         mode: Terminate
         certificateRefs:
@@ -42,7 +55,13 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - atproto
       tls:
         mode: Terminate
         certificateRefs:
@@ -53,7 +72,13 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - atproto
       tls:
         mode: Terminate
         certificateRefs:
@@ -64,7 +89,13 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - tnyclick
       tls:
         mode: Terminate
         certificateRefs:
@@ -75,33 +106,17 @@ spec:
       protocol: HTTPS
       allowedRoutes:
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - website
       tls:
         mode: Terminate
         certificateRefs:
           - name: evanjarrett-com-tls
-    - name: jarretttechfull
-      hostname: "jarrett.tech"
-      port: 443
-      protocol: HTTPS
-      allowedRoutes:
-        namespaces:
-          from: All
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - name: jarrett-tech-full-tls
-    - name: jarretttech
-      hostname: "*.jarrett.tech"
-      port: 443
-      protocol: HTTPS
-      allowedRoutes:
-        namespaces:
-          from: All
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - name: jarrett-tech-tls
     - name: j5tiofull
       hostname: "j5t.io"
       port: 443

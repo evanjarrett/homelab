@@ -52,10 +52,8 @@ spec:
       labels:
         app: atproto-pds
     spec:
-      securityContext: {}
       containers:
         - name: atproto-pds
-          securityContext: {}
           image: ghcr.io/bluesky-social/pds:0.4.158
           imagePullPolicy: IfNotPresent
           envFrom:
