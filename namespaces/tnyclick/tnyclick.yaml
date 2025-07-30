@@ -79,6 +79,9 @@ spec:
                 secretKeyRef:
                   name: tnyclick-auth-token
                   key: AUTH_TOKEN
+          volumeMounts:
+            - name: media
+              mountPath: /media
           resources:
             requests:
               memory: 128Mi
@@ -86,3 +89,6 @@ spec:
             limits:
               memory: 512Mi
               cpu: 500m
+      volumes:
+        - name: media
+          emptyDir: {}
