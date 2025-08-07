@@ -76,7 +76,7 @@ spec:
       ui:
         timezone: America/Chicago
       model:
-        path: plus://ba8d4af80997f670845b7845af9b340b
+        path: plus://a41b38aaa8f7ef3b4234de6c7ab56ef1
       detectors:
         coral1:
           type: edgetpu
