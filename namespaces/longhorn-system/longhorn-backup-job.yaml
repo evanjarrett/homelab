@@ -7,7 +7,7 @@ spec:
   cron: "0 2 * * *"  # Daily at 2 AM
   task: system-backup
   retain: 3
-  concurrency: 2
+  concurrency: 3
   parameters:
     volume-backup-policy: if-not-present
   labels:
