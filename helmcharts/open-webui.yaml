@@ -24,6 +24,9 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    persistence:
+      enabled: true
+      existingClaim: open-webui-storage-claim
     pipelines:
         enabled: false
     ollama:
@@ -32,14 +35,6 @@ spec:
         enabled: true
     ollamaUrls: 
         - http://ollama:11434
-    persistence:
-      provider: s3
-      s3:
-        endpointUrl: https://gateway.storjshare.io
-        bucket: openwebui
-        accessKey: jw6yimpc7dxhu2mycfbdy6eboexa
-        secretKeyExistingSecret: open-webui-secret
-        secretKeyExistingSecretKey: S3_SECRET_ACCESS_KEY
     commonEnvVars:
       - name: DEFAULT_MODELS
         value: PetrosStav/gemma3-tools:4b
@@ -58,3 +53,16 @@ spec:
     extraEnvFrom:
       - secretRef:
           name: open-webui-secret
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-storage-claim
+  namespace: ollama
+spec:
+  storageClassName: longhorn
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

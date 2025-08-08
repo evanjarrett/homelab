@@ -31,7 +31,13 @@ spec:
     runtimeClassName: nvidia
     extraEnv:
       - name: OLLAMA_CONTEXT_LENGTH
-        value: "16384"
+        value: "32768"
+      - name: OLLAMA_NUM_PARALLEL
+        value: "2"
+      - name: OLLAMA_MAX_LOADED_MODELS
+        value: "2"
+      - name: OLLAMA_MAX_QUEUE
+        value: "64"
     ollama:
       gpu:
         enabled: true

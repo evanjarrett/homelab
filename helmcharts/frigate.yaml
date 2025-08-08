@@ -50,6 +50,7 @@ spec:
         add: ["PERFMON"]
     nodeSelector:
       feature.node.kubernetes.io/coral.count: "2"
+      kubernetes.io/hostname: talos-cgy-c3m
     persistence:
       config:
         enabled: true
