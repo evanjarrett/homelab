@@ -23,8 +23,6 @@ spec:
           - --json
           - --benchmark
           - cis-1.23
-          - --targets
-          - master
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
