@@ -18,8 +18,6 @@ spec:
         image: aquasec/kube-bench:v0.8.0
         command: ["kube-bench"]
         args: 
-          - --outputfile
-          - /tmp/results/kubebench-results.json
           - --json
           - --benchmark
           - cis-1.23
@@ -29,9 +27,6 @@ spec:
           capabilities:
             drop:
             - ALL
-        volumeMounts:
-        - name: results
-          mountPath: /tmp/results
         resources:
           requests:
             cpu: 100m
@@ -39,42 +34,8 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
-      - name: results-publisher
-        image: alpine:3.19
-        command: ["/bin/sh"]
-        args:
-          - -c
-          - |
-            echo "$(date): Kube-bench scan completed"
-            if [ -f /tmp/results/kubebench-results.json ]; then
-              echo "Results saved to /tmp/results/kubebench-results.json"
-              # Results will be available in the pod logs
-              cat /tmp/results/kubebench-results.json
-            else
-              echo "ERROR: No results file found"
-              exit 1
-            fi
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - name: results
-          mountPath: /tmp/results
-          readOnly: true
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 100m
-            memory: 128Mi
       restartPolicy: Never
-      volumes:
-      - name: results
-        emptyDir: {}
+      volumes: []
       nodeSelector:
         kubernetes.io/os: linux
   backoffLimit: 1
