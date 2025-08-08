@@ -33,12 +33,6 @@ spec:
                 drop:
                 - ALL
             volumeMounts:
-            - name: var-lib-kubelet
-              mountPath: /var/lib/kubelet
-              readOnly: true
-            - name: etc-kubernetes
-              mountPath: /etc/kubernetes
-              readOnly: true
             - name: results
               mountPath: /tmp/results
             resources:
