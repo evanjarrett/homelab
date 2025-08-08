@@ -1,0 +1,209 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kubebench-scan
+  namespace: security
+spec:
+  schedule: "0 6 * * 1"  # Weekly on Monday at 6 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            fsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          hostPID: true
+          containers:
+          - name: kubebench
+            image: aquasec/kube-bench:v0.8.0
+            command: ["kube-bench"]
+            args: 
+              - --outputfile
+              - /tmp/results/kubebench-results.json
+              - --json
+              - --benchmark
+              - cis-1.23
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: var-lib-etcd
+              mountPath: /var/lib/etcd
+              readOnly: true
+            - name: var-lib-kubelet
+              mountPath: /var/lib/kubelet
+              readOnly: true
+            - name: var-lib-kube-scheduler
+              mountPath: /var/lib/kube-scheduler
+              readOnly: true
+            - name: var-lib-kube-controller-manager
+              mountPath: /var/lib/kube-controller-manager
+              readOnly: true
+            - name: etc-systemd
+              mountPath: /etc/systemd
+              readOnly: true
+            - name: lib-systemd
+              mountPath: /lib/systemd/
+              readOnly: true
+            - name: srv-kubernetes
+              mountPath: /srv/kubernetes/
+              readOnly: true
+            - name: etc-kubernetes
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: usr-local-mount
+              mountPath: /usr/local/mount-from-host/bin
+              readOnly: true
+            - name: etc-cni-netd
+              mountPath: /etc/cni/net.d/
+              readOnly: true
+            - name: opt-cni-bin
+              mountPath: /opt/cni/bin/
+              readOnly: true
+            - name: var-lib-cni
+              mountPath: /var/lib/cni/
+              readOnly: true
+            - name: var-lib-calico
+              mountPath: /var/lib/calico/
+              readOnly: true
+            - name: etc-passwd
+              mountPath: /etc/passwd
+              readOnly: true
+            - name: etc-group
+              mountPath: /etc/group
+              readOnly: true
+            - name: results
+              mountPath: /tmp/results
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+          - name: results-publisher
+            image: alpine:3.19
+            command: ["/bin/sh"]
+            args:
+              - -c
+              - |
+                echo "$(date): Kube-bench scan completed"
+                if [ -f /tmp/results/kubebench-results.json ]; then
+                  echo "Results saved to /tmp/results/kubebench-results.json"
+                  # Results will be available in the pod logs
+                  cat /tmp/results/kubebench-results.json
+                else
+                  echo "ERROR: No results file found"
+                  exit 1
+                fi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: results
+              mountPath: /tmp/results
+              readOnly: true
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
+          restartPolicy: Never
+          volumes:
+          - name: var-lib-etcd
+            hostPath:
+              path: "/var/lib/etcd"
+          - name: var-lib-kubelet
+            hostPath:
+              path: "/var/lib/kubelet"
+          - name: var-lib-kube-scheduler
+            hostPath:
+              path: "/var/lib/kube-scheduler"
+          - name: var-lib-kube-controller-manager
+            hostPath:
+              path: "/var/lib/kube-controller-manager"
+          - name: etc-systemd
+            hostPath:
+              path: "/etc/systemd"
+          - name: lib-systemd
+            hostPath:
+              path: "/lib/systemd"
+          - name: srv-kubernetes
+            hostPath:
+              path: "/srv/kubernetes"
+          - name: etc-kubernetes
+            hostPath:
+              path: "/etc/kubernetes"
+          - name: usr-local-mount
+            hostPath:
+              path: "/usr/local/bin"
+          - name: etc-cni-netd
+            hostPath:
+              path: "/etc/cni/net.d/"
+          - name: opt-cni-bin
+            hostPath:
+              path: "/opt/cni/bin/"
+          - name: var-lib-cni
+            hostPath:
+              path: "/var/lib/cni/"
+          - name: var-lib-calico
+            hostPath:
+              path: "/var/lib/calico/"
+          - name: etc-passwd
+            hostPath:
+              path: "/etc/passwd"
+          - name: etc-group
+            hostPath:
+              path: "/etc/group"
+          - name: results
+            emptyDir: {}
+          nodeSelector:
+            kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubebench
+  namespace: security
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubebench
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list"]
+- apiGroups: ["policy"]
+  resources: ["podsecuritypolicies"]
+  verbs: ["get", "list"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubebench
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubebench
+subjects:
+- kind: ServiceAccount
+  name: kubebench
+  namespace: security
