@@ -34,7 +34,13 @@ spec:
       storageReservedPercentageForDefaultDisk: 0
       guaranteedInstanceManagerCPU: 12
     defaultBackupStore:
-      backupTarget: "nfs://truenas.proxy.svc.cluster.local:/mnt/Pool-1.18.6/longhorn"
+      backupTarget: "nfs://192.168.1.100:/mnt/Pool-1.18.6/longhorn"
     persistence:
       defaultClass: true
+    recurringJobs:
+      system-backup:
+        cron: "0 2 * * *"  # Daily at 2 AM
+        task: backup
+        retain: 3
+        concurrency: 2
 
