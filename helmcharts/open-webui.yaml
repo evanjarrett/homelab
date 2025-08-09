@@ -13,7 +13,7 @@ spec:
         kind: HelmRepository
         name: open-webui-helmrepo
         namespace: flux-system
-      version: 7.0.1
+      version: 7.2.0
   interval: 2h
   timeout: 10m
   install:
