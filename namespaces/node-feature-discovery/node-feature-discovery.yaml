@@ -63,8 +63,6 @@ spec:
       "feature.node.kubernetes.io/pico-hsm": "true"
     matchFeatures:
     - feature: usb.device
-
-    
       matchExpressions:
             device:
               op: In
@@ -73,5 +71,4 @@ spec:
             vendor:
               op: In
               value:
-
                 - 20a0
