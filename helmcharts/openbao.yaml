@@ -52,7 +52,7 @@ spec:
           }
 
           seal "pkcs11" {
-            lib = "/usr/lib64/softhsm/libsofthsm2.so"
+            lib = "/shared/libsofthsm2.so"
             slot = "0"
             token_label = "Pico-HSM"
             key_label = "bao-root-key-rsa"
@@ -78,7 +78,7 @@ spec:
           emptyDir: {}
       volumeMounts:
         - name: pkcs11-lib
-          mountPath: /usr/lib64/softhsm
+          mountPath: /shared/
           readOnly: true
       # Init container to install softhsm
       extraInitContainers:
