@@ -51,3 +51,27 @@ spec:
               op: In
               value:
                 - "53424"
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: pico-hsm-rule
+spec:
+  rules:
+  - name: "pico-hsm"
+    labels:
+      "feature.node.kubernetes.io/pico-hsm": "true"
+    matchFeatures:
+    - feature: usb.device
+
+    
+      matchExpressions:
+            device:
+              op: In
+              value:
+                - '4230'
+            vendor:
+              op: In
+              value:
+
+                - 20a0
