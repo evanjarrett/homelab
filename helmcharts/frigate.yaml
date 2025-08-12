@@ -22,7 +22,7 @@ spec:
     disableHooks: true
   values:
     image:
-      tag: 0.15.1
+      tag: 0.15.2
     envFromSecrets:
       - frigate-secret
     coral:

@@ -2,6 +2,10 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: openbao
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -27,6 +31,65 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
-    agentImage:
-      repository: "openbao/openbao-hsm-ubi"
-      tag: "2.3.2"
+    server:
+      nodeSelector:
+        feature.node.kubernetes.io/pico-hsm: "true"
+      standalone:
+        config: |
+          ui = true
+
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+            # Enable unauthenticated metrics access (necessary for Prometheus Operator)
+            #telemetry {
+            #  unauthenticated_metrics_access = "true"
+            #}
+          }
+          storage "file" {
+            path = "/openbao/data"
+          }
+
+          seal "pkcs11" {
+            lib = "/usr/lib64/softhsm/libsofthsm2.so"
+            slot = "0"
+            token_label = "Pico-HSM"
+            key_label = "bao-root-key-rsa"
+            rsa_oaep_hash = "sha1"
+            mechanism = "CKM_RSA_PKCS_OAEP"
+          }
+
+          # Example configuration for enabling Prometheus metrics in your config.
+          #telemetry {
+          #  prometheus_retention_time = "30s"
+          #  disable_hostname = true
+          #}
+      extraSecretEnvironmentVars:
+        - envName: BAO_HSM_PIN
+          secretName: hsm-secrets
+          secretKey: pin
+      image:
+        repository: "openbao/openbao-hsm-ubi"
+        tag: "2.3.2"
+      # Shared volume for PKCS#11 library
+      volumes:
+        - name: pkcs11-lib
+          emptyDir: {}
+      volumeMounts:
+        - name: pkcs11-lib
+          mountPath: /usr/lib64/softhsm
+          readOnly: true
+      # Init container to install softhsm
+      extraInitContainers:
+        - name: pkcs11-installer
+          image: ghcr.io/evanjarrett/alpine-softhsm:main
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cp /usr/lib/softhsm/libsofthsm2.so /shared/
+              ls -la /shared/
+          volumeMounts:
+            - name: pkcs11-lib
+              mountPath: /shared
