@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pico-hsm-device-plugin
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: pico-hsm-device-plugin
+  template:
+    metadata:
+      labels:
+        name: pico-hsm-device-plugin
+    spec:
+      hostNetwork: true
+      containers:
+      - name: pico-hsm-plugin
+        image: alpine:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache usbutils
+
+          while true; do
+            HSM_INFO=$(lsusb | grep -i "HSM\|pico")
+
+            if [ -n "$HSM_INFO" ]; then
+              BUS=$(echo "$HSM_INFO" | sed 's/Bus \([0-9]*\) Device.*/\1/')
+              DEVICE=$(echo "$HSM_INFO" | sed 's/.*Device \([0-9]*\):.*/\1/')
+              HSM_PATH="/dev/bus/usb/$BUS/$DEVICE"
+
+              echo "Found Pico HSM at: $HSM_PATH"
+
+              # Create symlink for consistent access
+              ln -sf "$HSM_PATH" /dev/pico-hsm
+            fi
+
+            sleep 30
+          done
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: dev
+          mountPath: /dev
+        - name: usb-devices
+          mountPath: /proc/bus/usb
+          readOnly: true
+      volumes:
+      - name: dev
+        hostPath:
+          path: /dev
+      - name: usb-devices
+        hostPath:
+          path: /proc/bus/usb
