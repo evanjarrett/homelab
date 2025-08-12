@@ -20,21 +20,33 @@ spec:
         - /bin/sh
         - -c
         - |
-          apk add --no-cache usbutils
+          # Replace with your actual VID/PID from lsusb output
+          HSM_VID="20a0"
+          HSM_PID="4230"
 
           while true; do
-            HSM_INFO=$(lsusb | grep -i "HSM\|pico")
+            # Find HSM device using sysfs
+            for device in /sys/bus/usb/devices/*; do
+              if [ -f "$device/idVendor" ] && [ -f "$device/idProduct" ]; then
+                VID=$(cat "$device/idVendor")
+                PID=$(cat "$device/idProduct")
 
-            if [ -n "$HSM_INFO" ]; then
-              BUS=$(echo "$HSM_INFO" | sed 's/Bus \([0-9]*\) Device.*/\1/')
-              DEVICE=$(echo "$HSM_INFO" | sed 's/.*Device \([0-9]*\):.*/\1/')
-              HSM_PATH="/dev/bus/usb/$BUS/$DEVICE"
+                if [ "$VID" = "$HSM_VID" ] && [ "$PID" = "$HSM_PID" ]; then
+                  BUS_NUM=$(cat "$device/busnum")
+                  DEV_NUM=$(cat "$device/devnum")
+                  HSM_PATH="/dev/bus/usb/$(printf '%03d' $BUS_NUM)/$(printf '%03d' $DEV_NUM)"
 
-              echo "Found Pico HSM at: $HSM_PATH"
+                  echo "Found Pico HSM at: $HSM_PATH"
 
-              # Create symlink for consistent access
-              ln -sf "$HSM_PATH" /dev/pico-hsm
-            fi
+                  # Create persistent symlink
+                  if [ -c "$HSM_PATH" ]; then
+                    ln -sf "$HSM_PATH" /dev/pico-hsm
+                    echo "Created symlink: /dev/pico-hsm -> $HSM_PATH"
+                  fi
+                  break
+                fi
+              fi
+            done
 
             sleep 30
           done
@@ -43,13 +55,58 @@ spec:
         volumeMounts:
         - name: dev
           mountPath: /dev
-        - name: usb-devices
-          mountPath: /proc/bus/usb
+        - name: sys
+          mountPath: /sys
           readOnly: true
       volumes:
       - name: dev
         hostPath:
           path: /dev
-      - name: usb-devices
+      - name: sys
         hostPath:
-          path: /proc/bus/usb
+          path: /sys
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: generic-device-plugin
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: generic-device-plugin
+  template:
+    metadata:
+      labels:
+        name: generic-device-plugin
+    spec:
+      containers:
+      - image: squat/generic-device-plugin
+        name: generic-device-plugin
+        command:
+        - /usr/bin/generic-device-plugin
+        - --device
+        - |
+          [{
+            "name": "pico-hsm",
+            "groups": [{
+              "paths": [{
+                "path": "/dev/pico-hsm",
+                "mountPath": "/dev/pico-hsm"
+              }]
+            }]
+          }]
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: device-plugin
+          mountPath: /var/lib/kubelet/device-plugins
+        - name: dev
+          mountPath: /dev
+      volumes:
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+      - name: dev
+        hostPath:
+          path: /dev
