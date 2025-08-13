@@ -51,14 +51,14 @@ spec:
             path = "/openbao/data"
           }
 
-          seal "pkcs11" {
-            lib = "/usr/lib64/libsofthsm2.so"
-            slot = "0"
-            token_label = "Pico-HSM"
-            key_label = "bao-root-key-rsa"
-            rsa_oaep_hash = "sha1"
-            mechanism = "CKM_RSA_PKCS_OAEP"
-          }
+          # seal "pkcs11" {
+          #   lib = "/usr/lib64/libsofthsm2.so"
+          #   slot = "0"
+          #   token_label = "Pico-HSM"
+          #   key_label = "bao-root-key-rsa"
+          #   rsa_oaep_hash = "sha1"
+          #   mechanism = "CKM_RSA_PKCS_OAEP"
+          # }
 
           # Example configuration for enabling Prometheus metrics in your config.
           #telemetry {
