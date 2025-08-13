@@ -74,6 +74,6 @@ spec:
           squat.ai/pico-hsm: 1
       image:
         registry: "ghcr.io"
-        repository: "evanjarrett/alpine-softhsm"
-        tag: "ubi"
+        repository: "evanjarrett/openbao-softhsm"
+        tag: "2.3.2"
 
