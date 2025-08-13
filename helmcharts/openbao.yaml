@@ -74,7 +74,7 @@ spec:
           squat.ai/pico-hsm: 1
       image:
         repository: "openbao/openbao-hsm"
-        tag: "2.3.2"
+        tag: "2.3.2-amd64"
       # Shared volume for PKCS#11 library
       volumes:
         - name: pkcs11-lib
