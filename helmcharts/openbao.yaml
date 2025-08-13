@@ -86,7 +86,7 @@ spec:
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
-          image: registry.access.redhat.com/ubi9-minimal:9.6  # Same base as main
+          image: registry.access.redhat.com/ubi9-minimal:9.6-1754584681  # Same base as main
           command: 
           - sh 
           - -c
