@@ -31,6 +31,12 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    injector:
+      securityContext:
+        pod:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
     server:
       nodeSelector:
         feature.node.kubernetes.io/pico-hsm: "true"
