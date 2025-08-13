@@ -92,6 +92,7 @@ spec:
             - -c
             - |
               cp /usr/lib/softhsm/libsofthsm2.so /shared/
+              cp /usr/bin/softhsm* /shared/
               ls -la /shared/
           volumeMounts:
             - name: pkcs11-lib
