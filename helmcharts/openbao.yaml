@@ -86,7 +86,7 @@ spec:
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
-          image: ghcr.io/evanjarrett/alpine-softhsm:main
+          image: ghcr.io/evanjarrett/alpine-softhsm:v0.0.1
           command:
             - /bin/sh
             - -c
