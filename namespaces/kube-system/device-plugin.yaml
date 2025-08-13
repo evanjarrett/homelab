@@ -83,19 +83,13 @@ spec:
       containers:
       - image: squat/generic-device-plugin
         name: generic-device-plugin
-        command:
-        - /usr/bin/generic-device-plugin
+        args:
         - --device
         - |
-          [{
-            "name": "pico-hsm",
-            "groups": [{
-              "paths": [{
-                "path": "/dev/pico-hsm",
-                "mountPath": "/dev/pico-hsm"
-              }]
-            }]
-          }]
+          name: pico-hsm
+          groups:
+            - paths:
+                - path: /dev/pico-hsm
         securityContext:
           privileged: true
         volumeMounts:
