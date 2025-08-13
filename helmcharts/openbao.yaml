@@ -75,5 +75,5 @@ spec:
       image:
         registry: "ghcr.io"
         repository: "evanjarrett/openbao-softhsm"
-        tag: "2.3.2"
+        tag: "v2.3.2"
 
