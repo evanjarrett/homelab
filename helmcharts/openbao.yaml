@@ -84,10 +84,11 @@ spec:
           mountPath: /usr/local/lib
           readOnly: true
       securityContext:
-        pod:
-          runAsNonRoot: false
-          runAsUser: 0
-          runAsGroup: 0
+        statefulSet:
+          pod:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
