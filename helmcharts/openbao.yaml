@@ -83,6 +83,11 @@ spec:
         - name: pkcs11-lib
           mountPath: /usr/local/lib
           readOnly: true
+      securityContext:
+        pod:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
@@ -95,6 +100,7 @@ spec:
               cp /usr/lib64/libsqlite3* /usr/local/lib
               cp /usr/lib64/libgcc_s* /usr/local/lib
               cp /usr/lib64/libstdc++* /usr/local/lib
+              cp /usr/lib64/libcrypto* /usr/local/lib
               cp /usr/bin/softhsm* /usr/local/lib/
               chmod +x /usr/local/lib/*
               ls -la /usr/local/lib/
