@@ -82,18 +82,20 @@ spec:
       volumeMounts:
         - name: pkcs11-lib
           mountPath: /shared/
-          readOnly: true
+          readOnly: false
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
-          image: ghcr.io/evanjarrett/alpine-softhsm:main
-          command:
-            - /bin/sh
-            - -c
-            - |
-              cp /usr/lib/softhsm/libsofthsm2.so /shared/
-              cp /usr/bin/softhsm* /shared/
-              ls -la /shared/
+          image: registry.access.redhat.com/ubi9-minimal:9.6  # Same base as main
+          command: 
+          - sh 
+          - -c
+          - |
+            # Install SoftHSM in the glibc environment
+            microdnf install -y softhsm
+            cp /usr/bin/softhsm2-* /shared/
+            cp /usr/lib64/libsofthsm2.so* /shared/
+            chmod +x /shared/*
           volumeMounts:
             - name: pkcs11-lib
               mountPath: /shared
