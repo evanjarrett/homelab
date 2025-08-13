@@ -52,7 +52,7 @@ spec:
           }
 
           # seal "pkcs11" {
-          #   lib = "/shared/libsofthsm2.so"
+          #   lib = "/usr/local/lib/libsofthsm2.so"
           #   slot = "0"
           #   token_label = "Pico-HSM"
           #   key_label = "bao-root-key-rsa"
@@ -73,28 +73,31 @@ spec:
         limits:
           squat.ai/pico-hsm: 1
       image:
-        repository: "openbao/openbao-hsm"
-        tag: "2.3.2-amd64"
+        repository: "openbao/openbao-hsm-ubi"
+        tag: "2.3.2"
       # Shared volume for PKCS#11 library
       volumes:
         - name: pkcs11-lib
           emptyDir: {}
       volumeMounts:
         - name: pkcs11-lib
-          mountPath: /shared/
-          readOnly: false
+          mountPath: /usr/local/lib
+          readOnly: true
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
-          image: ghcr.io/evanjarrett/alpine-softhsm:v0.0.1
+          image: ghcr.io/evanjarrett/alpine-softhsm:ubi
           command:
             - /bin/sh
             - -c
             - |
-              cp /usr/lib/softhsm/libsofthsm2.so /shared/
-              cp /usr/bin/softhsm* /shared/
-              chmod +x /shared/*
-              ls -la /shared/
+              cp /usr/lib64/libsofthsm2* /usr/local/lib
+              cp /usr/lib64/libsqlite3* /usr/local/lib
+              cp /usr/lib64/libgcc_s* /usr/local/lib
+              cp /usr/lib64/libstdc++* /usr/local/lib
+              cp /usr/bin/softhsm* /usr/local/lib/
+              chmod +x /usr/local/lib/*
+              ls -la /usr/local/lib/
           volumeMounts:
             - name: pkcs11-lib
-              mountPath: /shared
+              mountPath: /usr/local/lib
