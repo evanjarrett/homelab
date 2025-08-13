@@ -51,14 +51,14 @@ spec:
             path = "/openbao/data"
           }
 
-          # seal "pkcs11" {
-          #   lib = "/shared/libsofthsm2.so"
-          #   slot = "0"
-          #   token_label = "Pico-HSM"
-          #   key_label = "bao-root-key-rsa"
-          #   rsa_oaep_hash = "sha1"
-          #   mechanism = "CKM_RSA_PKCS_OAEP"
-          # }
+          seal "pkcs11" {
+            lib = "/shared/libsofthsm2.so"
+            slot = "0"
+            token_label = "Pico-HSM"
+            key_label = "bao-root-key-rsa"
+            rsa_oaep_hash = "sha1"
+            mechanism = "CKM_RSA_PKCS_OAEP"
+          }
 
           # Example configuration for enabling Prometheus metrics in your config.
           #telemetry {
@@ -73,7 +73,7 @@ spec:
         limits:
           squat.ai/pico-hsm: 1
       image:
-        repository: "openbao/openbao-hsm-ubi"
+        repository: "openbao/openbao-hsm"
         tag: "2.3.2"
       # Shared volume for PKCS#11 library
       volumes:
@@ -86,16 +86,15 @@ spec:
       # Init container to install softhsm
       extraInitContainers:
         - name: pkcs11-installer
-          image: registry.access.redhat.com/ubi9-minimal:9.6  # Same base as main
-          command: 
-          - sh 
-          - -c
-          - |
-            # Install SoftHSM in the glibc environment
-            microdnf install -y softhsm
-            cp /usr/bin/softhsm2-* /shared/
-            cp /usr/lib64/libsofthsm2.so* /shared/
-            chmod +x /shared/*
+          image: ghcr.io/evanjarrett/alpine-softhsm:main
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cp /usr/lib/softhsm/libsofthsm2.so /shared/
+              cp /usr/bin/softhsm* /shared/
+              chmod +x /shared/*
+              ls -la /shared/
           volumeMounts:
             - name: pkcs11-lib
               mountPath: /shared
