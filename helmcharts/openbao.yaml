@@ -51,14 +51,14 @@ spec:
             path = "/openbao/data"
           }
 
-          # seal "pkcs11" {
-          #   lib = "/usr/local/lib/libsofthsm2.so"
-          #   slot = "0"
-          #   token_label = "Pico-HSM"
-          #   key_label = "bao-root-key-rsa"
-          #   rsa_oaep_hash = "sha1"
-          #   mechanism = "CKM_RSA_PKCS_OAEP"
-          # }
+          seal "pkcs11" {
+            lib = "/usr/lib64/libsofthsm2.so"
+            slot = "0"
+            token_label = "Pico-HSM"
+            key_label = "bao-root-key-rsa"
+            rsa_oaep_hash = "sha1"
+            mechanism = "CKM_RSA_PKCS_OAEP"
+          }
 
           # Example configuration for enabling Prometheus metrics in your config.
           #telemetry {
@@ -73,13 +73,7 @@ spec:
         limits:
           squat.ai/pico-hsm: 1
       image:
-        repository: "ghcr.io/evanjarrett/alpine-softhsm"
+        registry: "ghcr.io"
+        repository: "evanjarrett/alpine-softhsm"
         tag: "ubi"
-      # Shared volume for PKCS#11 library
-      volumes:
-        - name: pkcs11-lib
-          emptyDir: {}
-      volumeMounts:
-        - name: pkcs11-lib
-          mountPath: /usr/local/lib
-          readOnly: true
+
