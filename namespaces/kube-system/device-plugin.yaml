@@ -1,74 +1,6 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: pico-hsm-device-plugin
-  namespace: kube-system
-spec:
-  selector:
-    matchLabels:
-      name: pico-hsm-device-plugin
-  template:
-    metadata:
-      labels:
-        name: pico-hsm-device-plugin
-    spec:
-      hostNetwork: true
-      containers:
-      - name: pico-hsm-plugin
-        image: alpine:latest
-        command:
-        - /bin/sh
-        - -c
-        - |
-          # Replace with your actual VID/PID from lsusb output
-          HSM_VID="20a0"
-          HSM_PID="4230"
-
-          while true; do
-            # Find HSM device using sysfs
-            for device in /sys/bus/usb/devices/*; do
-              if [ -f "$device/idVendor" ] && [ -f "$device/idProduct" ]; then
-                VID=$(cat "$device/idVendor")
-                PID=$(cat "$device/idProduct")
-
-                if [ "$VID" = "$HSM_VID" ] && [ "$PID" = "$HSM_PID" ]; then
-                  BUS_NUM=$(cat "$device/busnum")
-                  DEV_NUM=$(cat "$device/devnum")
-                  HSM_PATH="/dev/bus/usb/$(printf '%03d' $BUS_NUM)/$(printf '%03d' $DEV_NUM)"
-
-                  echo "Found Pico HSM at: $HSM_PATH"
-
-                  # Create persistent symlink
-                  if [ -c "$HSM_PATH" ]; then
-                    ln -sf "$HSM_PATH" /dev/pico-hsm
-                    echo "Created symlink: /dev/pico-hsm -> $HSM_PATH"
-                  fi
-                  break
-                fi
-              fi
-            done
-
-            sleep 30
-          done
-        securityContext:
-          privileged: true
-        volumeMounts:
-        - name: dev
-          mountPath: /dev
-        - name: sys
-          mountPath: /sys
-          readOnly: true
-      volumes:
-      - name: dev
-        hostPath:
-          path: /dev
-      - name: sys
-        hostPath:
-          path: /sys
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
   name: generic-device-plugin
   namespace: kube-system
 spec:
@@ -88,8 +20,9 @@ spec:
         - |
           name: pico-hsm
           groups:
-            - paths:
-                - path: /dev/pico-hsm
+            - usb:
+                - vendor: "20a0"
+                  product: "4230"
         securityContext:
           privileged: true
         volumeMounts:
