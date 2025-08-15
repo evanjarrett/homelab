@@ -64,7 +64,7 @@ spec:
             token_label = "Pico-HSM"
             key_id = "0x01"
             key_label = "bao-root-key-rsa"
-            rsa_oaep_hash = "sha1"
+            rsa_oaep_hash = "sha256"
           }
 
           # Example configuration for enabling Prometheus metrics in your config.
