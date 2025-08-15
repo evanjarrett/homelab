@@ -60,11 +60,11 @@ spec:
           }
 
           seal "pkcs11" {
-            lib = "/usr/lib/pkcs11/opensc-pkcs11.so"
+            lib = "/usr/local/lib/libsc-hsm-pkcs11.so"
             token_label = "Pico-HSM"
-            key_id = "0x01"
-            key_label = "bao-root-key-rsa"
-            rsa_oaep_hash = "sha256"
+            key_id = "0x02"
+            key_label = "bao-root-key-aes"
+            mechanism = "aes-gcm"
           }
 
           # Example configuration for enabling Prometheus metrics in your config.
@@ -89,6 +89,6 @@ spec:
       image:
         registry: "ghcr.io"
         repository: "evanjarrett/openbao-softhsm"
-        tag: "v2.4.3"
+        tag: "v2.4.4"
         pullPolicy: "Always"
 
