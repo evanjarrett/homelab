@@ -63,7 +63,7 @@ spec:
             lib = "/usr/lib/pkcs11/opensc-pkcs11.so"
             token_label = "Pico-HSM"
             key_id = "0x01"
-            #key_label = "bao-root-key-rsa"
+            key_label = "bao-root-key-rsa"
             rsa_oaep_hash = "sha1"
           }
 
