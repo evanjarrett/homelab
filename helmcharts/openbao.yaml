@@ -76,11 +76,10 @@ spec:
       statefulSet:
         securityContext:
           pod:
-            securityContext:
-              runAsNonRoot: false
-              runAsGroup: 0
-              runAsUser: 0
-              fsGroup: 0
+            runAsNonRoot: false
+            runAsGroup: 0
+            runAsUser: 0
+            fsGroup: 0
           container: 
             allowPrivilegeEscalation: true
       extraSecretEnvironmentVars:
