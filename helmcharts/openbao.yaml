@@ -61,7 +61,8 @@ spec:
 
           seal "pkcs11" {
             lib = "/usr/lib/pkcs11/opensc-pkcs11.so"
-            token_label = "Pico-HSM"
+            slot = "0"
+            #token_label = "Pico-HSM"
             key_label = "bao-root-key-rsa"
             rsa_oaep_hash = "sha1"
             mechanism = "CKM_RSA_PKCS_OAEP"
