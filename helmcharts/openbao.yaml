@@ -31,6 +31,14 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    injector:
+      securityContext:
+        pod:
+          securityContext:
+            runAsNonRoot: false
+            runAsGroup: 0
+            runAsUser: 0
+            fsGroup: 0
     server:
       nodeSelector:
         feature.node.kubernetes.io/pico-hsm: "true"
@@ -68,9 +76,13 @@ spec:
       statefulSet:
         securityContext:
           pod:
-          runAsNonRoot: false
-          runAsGroup: 0
-          runAsUser: 0
+            securityContext:
+              runAsNonRoot: false
+              runAsGroup: 0
+              runAsUser: 0
+              fsGroup: 0
+          container: 
+            allowPrivilegeEscalation: true
       extraSecretEnvironmentVars:
         - envName: BAO_HSM_PIN
           secretName: hsm-secrets
