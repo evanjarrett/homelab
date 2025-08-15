@@ -65,6 +65,9 @@ spec:
             key_id = "0x02"
             key_label = "bao-root-key-aes"
             mechanism = "0x1087"
+            #key_id = "0x01"
+            #key_label = "bao-root-key-rsa"
+            #mechanism = "0x0009"
           }
 
           # Example configuration for enabling Prometheus metrics in your config.
