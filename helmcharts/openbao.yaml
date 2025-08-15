@@ -73,6 +73,13 @@ spec:
           #  prometheus_retention_time = "30s"
           #  disable_hostname = true
           #}
+      statefulSet:
+        securityContext:
+          pod:
+            runAsNonRoot: false
+            runAsGroup: 0
+            runAsUser: 0
+            fsGroup: 0
       extraSecretEnvironmentVars:
         - envName: BAO_HSM_PIN
           secretName: hsm-secrets
@@ -83,5 +90,6 @@ spec:
       image:
         registry: "ghcr.io"
         repository: "evanjarrett/openbao-softhsm"
-        tag: "v2.4.2"
+        tag: "v2.4.3"
+        pullPolicy: "Always"
 
