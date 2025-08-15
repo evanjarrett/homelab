@@ -60,7 +60,7 @@ spec:
           }
 
           # seal "pkcs11" {
-          #   lib = "/usr/lib/softhsm/libsofthsm2.so"
+          #   lib = "/usr/lib/pkcs11/opensc-pkcs11.so"
           #   slot = "0"
           #   token_label = "Pico-HSM"
           #   key_label = "bao-root-key-rsa"
@@ -73,15 +73,6 @@ spec:
           #  prometheus_retention_time = "30s"
           #  disable_hostname = true
           #}
-      statefulSet:
-        securityContext:
-          pod:
-            runAsNonRoot: false
-            runAsGroup: 0
-            runAsUser: 0
-            fsGroup: 0
-          container: 
-            allowPrivilegeEscalation: true
       extraSecretEnvironmentVars:
         - envName: BAO_HSM_PIN
           secretName: hsm-secrets
@@ -92,5 +83,5 @@ spec:
       image:
         registry: "ghcr.io"
         repository: "evanjarrett/openbao-softhsm"
-        tag: "v2.4.1"
+        tag: "v2.4.2"
 
