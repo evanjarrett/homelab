@@ -159,3 +159,12 @@ metadata:
 spec:
   url: https://evanjarrett.github.io/secret-service-operator
   interval: 1m
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: hsm-secrets-helmrepo
+  namespace: flux-system
+spec:
+  url: https://evanjarrett.github.io/hsm-secrets-operator
+  interval: 1m

@@ -59,15 +59,26 @@ spec:
             path = "/openbao/data"
           }
 
-          seal "pkcs11" {
-            lib = "/usr/local/lib/libsc-hsm-pkcs11.so"
-            token_label = "Pico-HSM"
-            # key_id = "0x02"
-            # key_label = "bao-root-key-aes"
-            # mechanism = "0x1087"
-            key_id = "0x01"
-            key_label = "bao-root-key-rsa"
-            mechanism = "0x0009"
+          # seal "pkcs11" {
+          #   lib = "/usr/local/lib/libsc-hsm-pkcs11.so"
+          #   token_label = "Pico-HSM"
+          #   # key_id = "0x02"
+          #   # key_label = "bao-root-key-aes"
+          #   # mechanism = "0x1087"
+          #   key_id = "0x01"
+          #   key_label = "bao-root-key-rsa"
+          #   mechanism = "0x0009"
+          # }
+
+          initialize "default" {
+            request "enable-kv-v2" {
+              operation = "update"
+              path      = "sys/mounts/secret"
+              body      = jsonencode({
+                type = "kv-v2"
+                description = "KV Version 2 secret store"
+              })
+            }
           }
 
           # Example configuration for enabling Prometheus metrics in your config.
@@ -86,9 +97,9 @@ spec:
         - envName: BAO_HSM_PIN
           secretName: hsm-secrets
           secretKey: pin
-      resources:
-        limits:
-          squat.ai/pico-hsm: 1
+      # resources:
+      #   limits:
+      #     squat.ai/pico-hsm: 1
       image:
         registry: "ghcr.io"
         repository: "evanjarrett/openbao-softhsm"
