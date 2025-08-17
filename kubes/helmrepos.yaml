@@ -136,15 +136,6 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: external-secrets-helmrepo
-  namespace: flux-system
-spec:
-  url: https://charts.external-secrets.io
-  interval: 2h
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
   name: openbao-helmrepo
   namespace: flux-system
 spec:
