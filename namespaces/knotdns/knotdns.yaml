@@ -82,7 +82,7 @@ spec:
             claimName: knotdns-storage-pvc
         - name: init-storage-data
           secret:
-            secretName: knotdns-init-storage-secret
+            secretName: knotdns-init-storage
 ---
 apiVersion: v1
 kind: Service

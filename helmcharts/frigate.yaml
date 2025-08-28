@@ -24,7 +24,7 @@ spec:
     image:
       tag: 0.15.2
     envFromSecrets:
-      - frigate-secret
+      - frigate
     coral:
       enabled: true
       hostPath: /dev/apex_0

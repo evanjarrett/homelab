@@ -77,7 +77,7 @@ spec:
             - name: AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: tnyclick-auth-token
+                  name: tnyclick
                   key: AUTH_TOKEN
           volumeMounts:
             - name: media
