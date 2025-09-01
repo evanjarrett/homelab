@@ -50,9 +50,6 @@ spec:
         value: "true"
       - name: WEB_SEARCH_ENGINE
         value: duckduckgo
-    extraEnvFrom:
-      - secretRef:
-          name: open-webui-secret
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
