@@ -77,7 +77,6 @@ spec:
               apk add --no-cache curl bash jq coreutils
               curl -o /shared/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
               chmod +x /shared/pdsadmin
-              chown 1000:1000 /shared/pdsadmin
           volumeMounts:
             - name: shared-scripts
               mountPath: /shared
