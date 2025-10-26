@@ -57,20 +57,40 @@ spec:
         app: atproto-pds
     spec:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: setup-pdsadmin
+          image: alpine:latest
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              apk add --no-cache curl bash jq coreutils
+              curl -o /shared/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
+              chmod +x /shared/pdsadmin
+              chown 1000:1000 /shared/pdsadmin
+          volumeMounts:
+            - name: shared-scripts
+              mountPath: /shared
       containers:
         - name: atproto-pds
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop:
-              - ALL
+                - ALL
           image: ghcr.io/bluesky-social/pds:0.4.182
           imagePullPolicy: IfNotPresent
           envFrom:
@@ -99,21 +119,21 @@ spec:
         - name: pdsadmin
           securityContext:
             allowPrivilegeEscalation: false
-            runAsNonRoot: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
             capabilities:
               drop:
-              - ALL
+                - ALL
           image: alpine:latest
           command: ["/bin/sh"]
           args:
             - -c
             - |
-              apk add --no-cache curl bash jq coreutils
-              curl -o /usr/local/bin/pdsadmin https://raw.githubusercontent.com/bluesky-social/pds/refs/heads/main/pdsadmin.sh
-              chmod +x /usr/local/bin/pdsadmin
-              mkdir -p /pds
-              touch /pds/pds.env
               tail -f /dev/null
+          env:
+            - name: PATH
+              value: "/shared:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
           envFrom:
             - configMapRef:
                 name: atproto-pds-config
@@ -122,6 +142,8 @@ spec:
           volumeMounts:
             - name: shared-scripts
               mountPath: /shared
+            - name: data
+              mountPath: /pds
           resources:
             limits:
               cpu: 50m
@@ -144,7 +166,7 @@ metadata:
 spec:
   storageClassName: longhorn
   accessModes:
-  - ReadWriteOnce
+    - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
