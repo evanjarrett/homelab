@@ -57,18 +57,20 @@ spec:
         app: atproto-pds
     spec:
       securityContext:
-        fsGroup: 1000
-        allowPrivilegeEscalation: false
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
-        capabilities:
-          drop:
-            - ALL
       containers:
         - name: atproto-pds
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+              - ALL
           image: ghcr.io/bluesky-social/pds:0.4.182
           imagePullPolicy: IfNotPresent
           envFrom:
@@ -107,7 +109,7 @@ metadata:
 spec:
   storageClassName: longhorn
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
       storage: 10Gi
