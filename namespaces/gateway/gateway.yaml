@@ -28,6 +28,7 @@ spec:
               values:
               - website
               - proxy
+              - loom-system
       tls:
         mode: Terminate
         certificateRefs:
