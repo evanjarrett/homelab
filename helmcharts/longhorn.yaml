@@ -21,7 +21,7 @@ spec:
         kind: HelmRepository
         name: longhorn-helmrepo
         namespace: flux-system
-      version: 1.10.0
+      version: 1.10.1
   interval: 2h
   install:
     createNamespace: true
