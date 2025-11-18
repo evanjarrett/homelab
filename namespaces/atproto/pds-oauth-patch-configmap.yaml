@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pds-oauth-patch
+  namespace: atproto
+data:
+  patch-oauth.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "[PATCH] Starting OAuth clock tolerance patch..."
+
+    # Copy entire app directory to shared volume
+    echo "[PATCH] Copying PDS application to shared volume..."
+    cp -a /app-original/. /app-patched/
+
+    # Find the compiled client.js file (pnpm uses .pnpm directory)
+    TARGET_FILE="/app-patched/node_modules/.pnpm/@atproto+oauth-provider@0.13.4/node_modules/@atproto/oauth-provider/dist/client/client.js"
+
+    if [ ! -f "$TARGET_FILE" ]; then
+      echo "[PATCH] ERROR: Target file not found: $TARGET_FILE"
+      echo "[PATCH] Listing directory structure..."
+      ls -la /app-patched/node_modules/.pnpm/ || true
+      exit 1
+    fi
+
+    echo "[PATCH] Found target file: $TARGET_FILE"
+    echo "[PATCH] File size: $(wc -c < "$TARGET_FILE") bytes"
+
+    # Backup original
+    cp "$TARGET_FILE" "${TARGET_FILE}.backup"
+    echo "[PATCH] Created backup: ${TARGET_FILE}.backup"
+
+    # Show context before patching
+    echo "[PATCH] Context before patch:"
+    grep -C 2 "maxTokenAge" "$TARGET_FILE" || echo "[PATCH] maxTokenAge not found in expected location"
+
+    # Patch: Add clockTolerance to jwtVerify calls
+    # Pattern: Look for maxTokenAge and add clockTolerance on the next line
+    # This matches the authenticate() method's jwtVerify call
+    sed -i '/maxTokenAge.*CLIENT_ASSERTION_MAX_AGE/a\        clockTolerance: 30,' "$TARGET_FILE"
+
+    echo "[PATCH] Applied sed patch"
+
+    # Verify patch
+    echo "[PATCH] Verifying patch..."
+    if grep -q "clockTolerance.*30" "$TARGET_FILE"; then
+      echo "[PATCH] ✓ SUCCESS: clockTolerance found in patched file"
+      echo "[PATCH] Context after patch:"
+      grep -C 3 "clockTolerance" "$TARGET_FILE"
+    else
+      echo "[PATCH] ✗ WARNING: clockTolerance not found after patching"
+      echo "[PATCH] Showing maxTokenAge context:"
+      grep -C 5 "maxTokenAge" "$TARGET_FILE"
+      exit 1
+    fi
+
+    # Calculate diff
+    echo "[PATCH] Patch diff:"
+    diff -u "${TARGET_FILE}.backup" "$TARGET_FILE" || true
+
+    echo "[PATCH] Init container complete - OAuth provider patched successfully"
