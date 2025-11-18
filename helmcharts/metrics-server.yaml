@@ -25,6 +25,7 @@ spec:
   values:
     apiService:
       insecureSkipTLSVerify: false
-    # tls:
-    #   type: cert-manager
     replicas: 2
+    podLabels:
+      k8s-app: metrics-server
+

@@ -66,6 +66,31 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # Init container to patch OAuth provider with clockTolerance
+      initContainers:
+        - name: patch-oauth
+          image: ghcr.io/bluesky-social/pds:0.4.193
+          command: ["/bin/sh", "/scripts/patch-oauth.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: patch-script
+              mountPath: /scripts
+            - name: app-patched
+              mountPath: /app-patched
+            - name: app-original
+              mountPath: /app-original
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
       containers:
         - name: atproto-pds
           securityContext:
@@ -88,6 +113,9 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /pds
+            # Mount patched app directory instead of original
+            - name: app-patched
+              mountPath: /app
           livenessProbe:
             httpGet:
               path: /xrpc/_health
@@ -103,6 +131,17 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: pds-storage-claim
+        # Patch script from ConfigMap
+        - name: patch-script
+          configMap:
+            name: pds-oauth-patch
+            defaultMode: 0755
+        # Shared volume for patched application
+        - name: app-patched
+          emptyDir: {}
+        # Original app directory (from image)
+        - name: app-original
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
