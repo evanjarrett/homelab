@@ -74,7 +74,7 @@ spec:
             capabilities:
               drop:
               - ALL
-          image: ghcr.io/bluesky-social/pds:0.4.188
+          image: ghcr.io/bluesky-social/pds:0.4.193
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
