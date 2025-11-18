@@ -12,7 +12,8 @@ data:
 
     # Copy entire app directory to shared volume
     echo "[PATCH] Copying PDS application to shared volume..."
-    cp -a /app-original/. /app-patched/
+    # Use -r instead of -a to avoid permission errors, and copy from /app (the original location)
+    cp -r /app/. /app-patched/ 2>&1 | grep -v "can't preserve" || true
 
     # Find the compiled client.js file (pnpm uses .pnpm directory)
     TARGET_FILE="/app-patched/node_modules/.pnpm/@atproto+oauth-provider@0.13.4/node_modules/@atproto/oauth-provider/dist/client/client.js"

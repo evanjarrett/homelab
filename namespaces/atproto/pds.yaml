@@ -82,8 +82,6 @@ spec:
               mountPath: /scripts
             - name: app-patched
               mountPath: /app-patched
-            - name: app-original
-              mountPath: /app-original
           resources:
             limits:
               cpu: 200m
@@ -138,9 +136,6 @@ spec:
             defaultMode: 0755
         # Shared volume for patched application
         - name: app-patched
-          emptyDir: {}
-        # Original app directory (from image)
-        - name: app-original
           emptyDir: {}
 ---
 apiVersion: v1
