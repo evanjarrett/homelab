@@ -32,6 +32,7 @@ spec:
       createDefaultDiskLabeledNodes: true
       nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
       storageReservedPercentageForDefaultDisk: 0
+      storageMinimalAvailablePercentage: 10
       guaranteedInstanceManagerCPU: 12
     defaultBackupStore:
       backupTarget: "nfs://192.168.1.100:/mnt/Pool-1.18.6/longhorn"
