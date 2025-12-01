@@ -8,6 +8,8 @@ spec:
   task: system-backup
   retain: 3
   concurrency: 3
+  groups:
+    - default
   parameters:
     volume-backup-policy: if-not-present
   labels:
@@ -23,5 +25,7 @@ spec:
   task: snapshot-cleanup
   retain: 10
   concurrency: 3
+  groups:
+    - default
   labels:
     app: longhorn-cleanup
