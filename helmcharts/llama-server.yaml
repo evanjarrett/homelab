@@ -118,6 +118,8 @@ spec:
             - "16"
             - "--models-max"
             - "2"
+            - "-c"
+            - "32768"
           env: []
           lifecycle:
             postStart:
