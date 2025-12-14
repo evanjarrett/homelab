@@ -102,9 +102,10 @@ spec:
         reindex: false
       genai:
         enabled: true
-        provider: ollama
-        base_url: http://ollama.ollama.svc.cluster.local:11434
-        model: PetrosStav/gemma3-tools:4b
+        provider: openai
+        base_url: http://llama-server.llm.svc.cluster.local:8080/v1
+        api_key: "not-needed"
+        model: gemma-3-12b-it
         prompt: You are presented with images from a residential security camera. 
           Provide for me a short description of the {label} you see, along with what 
           activity they are likely doing. Keep it brief so that the message can be 

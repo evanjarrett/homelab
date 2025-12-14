@@ -100,33 +100,6 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: nvidia-device-plugin-helmrepo
-  namespace: flux-system
-spec:
-  url: https://nvidia.github.io/k8s-device-plugin
-  interval: 2h
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: ollama-helmrepo
-  namespace: flux-system
-spec:
-  url: https://otwld.github.io/ollama-helm/
-  interval: 2h
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
-  name: open-webui-helmrepo
-  namespace: flux-system
-spec:
-  url: https://helm.openwebui.com/
-  interval: 2h
----
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: HelmRepository
-metadata:
   name: secret-service-helmrepo
   namespace: flux-system
 spec:
@@ -141,3 +114,12 @@ metadata:
 spec:
   url: https://evanjarrett.github.io/hsm-secrets-operator
   interval: 1m
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: amd-gpu-operator-helmrepo
+  namespace: flux-system
+spec:
+  url: https://rocm.github.io/gpu-operator
+  interval: 2h

@@ -72,3 +72,26 @@ spec:
               op: In
               value:
                 - 20a0
+---
+apiVersion: nfd.k8s-sigs.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: amd-gpu-rule
+spec:
+  rules:
+  - name: "amd-gpu"
+    labels:
+      "feature.node.kubernetes.io/custom-amd.gpu": "true"
+    matchFeatures:
+    - feature: pci.device
+      matchExpressions:
+        class:
+          op: In
+          value:
+            - "0300"  # VGA compatible controller
+            - "0302"  # 3D controller
+            - "0380"  # Display controller
+        vendor:
+          op: In
+          value:
+            - "1002"  # AMD/ATI

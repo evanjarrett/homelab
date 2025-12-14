@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-server-config
+  namespace: llm
+data:
+  models.ini: |
+    [gemma-3-12b-it]
+    model = /models/gemma-3-12b-it-Q4_K_M.gguf
+    mmproj = /models/gemma-3-12b-it-mmproj-f16.gguf
+
+    [hermes-3-8b]
+    model = /models/Hermes-3-Llama-3.1-8B-Q4_K_M.gguf
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llama-models
+  namespace: llm
+  annotations:
+    longhorn.io/number-of-replicas: "1"
+    longhorn.io/data-locality: "strict-local"
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llama-server
+  template:
+    metadata:
+      labels:
+        app: llama-server
+    spec:
+      nodeSelector:
+        feature.node.kubernetes.io/custom-amd.gpu: "true"
+      initContainers:
+        - name: download-models
+          image: alpine:latest
+          command:
+            - sh
+            - -c
+            - |
+              apk add --no-cache curl
+              cd /models
+              # Gemma 3 12B vision model + mmproj
+              if [ ! -f "gemma-3-12b-it-Q4_K_M.gguf" ]; then
+                echo "Downloading Gemma 3 12B..."
+                curl -L -o gemma-3-12b-it-Q4_K_M.gguf \
+                  "https://huggingface.co/ggml-org/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf"
+              fi
+              if [ ! -f "gemma-3-12b-it-mmproj-f16.gguf" ]; then
+                echo "Downloading Gemma 3 12B mmproj..."
+                curl -L -o gemma-3-12b-it-mmproj-f16.gguf \
+                  "https://huggingface.co/Mungert/gemma-3-12b-it-gguf/resolve/main/google_gemma-3-12b-it-mmproj-f16.gguf"
+              fi
+              # Hermes 3 8B for tool calling (Home Assistant)
+              if [ ! -f "Hermes-3-Llama-3.1-8B-Q4_K_M.gguf" ]; then
+                echo "Downloading Hermes 3 8B..."
+                curl -L -o Hermes-3-Llama-3.1-8B-Q4_K_M.gguf \
+                  "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf"
+              fi
+              echo "Models ready."
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      containers:
+        - name: llama-server
+          image: docker.io/kyuz0/amd-strix-halo-toolboxes:rocm-7.1.1-rocwmma
+          command: ["llama-server"]
+          args:
+            - "--models-dir"
+            - "/models"
+            - "--models-preset"
+            - "/config/models.ini"
+            - "--models-max"
+            - "3"
+            - "-ngl"
+            - "999"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+            - "-fa"
+            - "--no-mmap"
+          env:
+            - name: ROCBLAS_USE_HIPBLASLT
+              value: "1"
+            - name: HSA_OVERRIDE_GFX_VERSION
+              value: "11.5.1"
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            limits:
+              amd.com/gpu: 1
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: config
+              mountPath: /config
+            - name: dri
+              mountPath: /dev/dri
+            - name: kfd
+              mountPath: /dev/kfd
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: llama-models
+        - name: config
+          configMap:
+            name: llama-server-config
+        - name: dri
+          hostPath:
+            path: /dev/dri
+        - name: kfd
+          hostPath:
+            path: /dev/kfd
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  selector:
+    app: llama-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
