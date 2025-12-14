@@ -28,7 +28,7 @@ metadata:
   namespace: llm
   annotations:
     longhorn.io/number-of-replicas: "1"
-    longhorn.io/data-locality: "strict-local"
+    longhorn.io/data-locality: "best-effort"
 spec:
   accessModes:
     - ReadWriteOnce
