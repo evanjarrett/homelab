@@ -112,7 +112,7 @@ spec:
             - "--port"
             - "8080"
             - "-fa"
-            - "on"
+            - "off"
             - "--no-mmap"
             - "-t"
             - "16"
@@ -121,8 +121,8 @@ spec:
               value: "1"
             - name: HSA_OVERRIDE_GFX_VERSION
               value: "11.5.1"
-            - name: ROCM_CACHE_DIR
-              value: "/cache/rocm"
+            - name: AMD_COMGR_CACHE_DIR
+              value: "/cache/comgr"
           ports:
             - containerPort: 8080
               name: http
