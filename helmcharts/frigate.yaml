@@ -108,7 +108,7 @@ spec:
         enabled: true
         provider: openai
         api_key: "not-needed"
-        model: gemma-3-12b-it
+        model: qwen3-vl-8b
         prompt: >
           You are analyzing images from a residential security camera pointed at
           a driveway. The camera also captures part of the sidewalk and street.

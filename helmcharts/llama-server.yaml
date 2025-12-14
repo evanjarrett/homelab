@@ -29,9 +29,9 @@ metadata:
   namespace: llm
 data:
   models.ini: |
-    [gemma-3-12b-it]
-    model = /models/gemma-3-12b-it-Q4_K_M.gguf
-    mmproj = /models/gemma-3-12b-it-mmproj-f16.gguf
+    [qwen3-vl-8b]
+    model = /models/Qwen3VL-8B-Instruct-Q4_K_M.gguf
+    mmproj = /models/mmproj-Qwen3VL-8B-Instruct-F16.gguf
 
     [hermes-3-8b]
     model = /models/Hermes-3-Llama-3.1-8B-Q4_K_M.gguf
@@ -77,16 +77,16 @@ spec:
             - |
               apk add --no-cache curl
               cd /models
-              # Gemma 3 12B vision model + mmproj
-              if [ ! -f "gemma-3-12b-it-Q4_K_M.gguf" ]; then
-                echo "Downloading Gemma 3 12B..."
-                curl -L -o gemma-3-12b-it-Q4_K_M.gguf \
-                  "https://huggingface.co/ggml-org/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf"
+              # Qwen3-VL-8B vision model + mmproj
+              if [ ! -f "Qwen3VL-8B-Instruct-Q4_K_M.gguf" ]; then
+                echo "Downloading Qwen3-VL-8B..."
+                curl -L -o Qwen3VL-8B-Instruct-Q4_K_M.gguf \
+                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf"
               fi
-              if [ ! -f "gemma-3-12b-it-mmproj-f16.gguf" ]; then
-                echo "Downloading Gemma 3 12B mmproj..."
-                curl -L -o gemma-3-12b-it-mmproj-f16.gguf \
-                  "https://huggingface.co/Mungert/gemma-3-12b-it-gguf/resolve/main/google_gemma-3-12b-it-mmproj-f16.gguf"
+              if [ ! -f "mmproj-Qwen3VL-8B-Instruct-F16.gguf" ]; then
+                echo "Downloading Qwen3-VL-8B mmproj..."
+                curl -L -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
+                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf"
               fi
               # Hermes 3 8B for tool calling (Home Assistant)
               if [ ! -f "Hermes-3-Llama-3.1-8B-Q4_K_M.gguf" ]; then
@@ -133,7 +133,7 @@ spec:
                       curl -s http://localhost:8080/health && break
                       sleep 5
                     done
-                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"gemma-3-12b-it"}'
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-vl-8b"}'
                     curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"hermes-3-8b"}'
           ports:
             - containerPort: 8080
