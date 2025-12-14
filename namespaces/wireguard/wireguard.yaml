@@ -95,19 +95,27 @@ spec:
             timeoutSeconds: 1
           # Give pod permissions to modify iptables and load the wireguard kernel module
           securityContext:
+            privileged: true
             capabilities:
               add:
                 - NET_ADMIN
-                - CAP_SYS_MODULE
+                - SYS_MODULE
           # Persistent storage location
           volumeMounts:
             - mountPath: /etc/wireguard
               name: config
+            - mountPath: /lib/modules
+              name: host-modules
+              readOnly: true
       restartPolicy: Always
       volumes:
         - name: config
           persistentVolumeClaim:
             claimName: wg-easy-storage-claim
+        - name: host-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
 ---
 apiVersion: v1
 kind: Service
