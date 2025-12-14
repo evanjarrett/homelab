@@ -114,6 +114,8 @@ spec:
             - "-fa"
             - "on"
             - "--no-mmap"
+            - "-t"
+            - "16"
           env:
             - name: ROCBLAS_USE_HIPBLASLT
               value: "1"
@@ -123,7 +125,10 @@ spec:
             - containerPort: 8080
               name: http
           resources:
+            requests:
+              cpu: "8"
             limits:
+              cpu: "16"
               amd.com/gpu: 1
           securityContext:
             privileged: true
