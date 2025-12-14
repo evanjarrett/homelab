@@ -100,29 +100,25 @@ spec:
               mountPath: /models
       containers:
         - name: llama-server
-          image: docker.io/kyuz0/amd-strix-halo-toolboxes:rocm-7.1.1-rocwmma
+          image: docker.io/kyuz0/amd-strix-halo-toolboxes:vulkan-radv
           command: ["llama-server"]
           args:
-            - "--model"
-            - "/models/Hermes-3-Llama-3.1-8B-Q4_K_M.gguf"
+            - "--models-dir"
+            - "/models"
+            - "--models-preset"
+            - "/config/models.ini"
             - "-ngl"
             - "999"
             - "--host"
             - "0.0.0.0"
             - "--port"
             - "8080"
-            - "-fa"
-            - "off"
             - "--no-mmap"
             - "-t"
             - "16"
-          env:
-            - name: ROCBLAS_USE_HIPBLASLT
-              value: "1"
-            - name: HSA_OVERRIDE_GFX_VERSION
-              value: "11.5.1"
-            - name: AMD_COMGR_CACHE_DIR
-              value: "/cache/comgr"
+            - "--models-max"
+            - "2"
+          env: []
           ports:
             - containerPort: 8080
               name: http
