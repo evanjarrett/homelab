@@ -114,6 +114,7 @@ spec:
             - "--port"
             - "8080"
             - "-fa"
+            - "on"
             - "--no-mmap"
           env:
             - name: ROCBLAS_USE_HIPBLASLT
