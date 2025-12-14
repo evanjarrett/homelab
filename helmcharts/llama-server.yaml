@@ -119,6 +119,20 @@ spec:
             - "--models-max"
             - "2"
           env: []
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    sleep 10
+                    for i in 1 2 3 4 5 6 7 8 9 10; do
+                      curl -s http://localhost:8080/health && break
+                      sleep 5
+                    done
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"gemma-3-12b-it"}'
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"hermes-3-8b"}'
           ports:
             - containerPort: 8080
               name: http
