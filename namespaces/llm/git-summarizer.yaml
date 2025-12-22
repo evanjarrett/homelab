@@ -52,7 +52,7 @@ spec:
             capabilities:
               drop:
                 - ALL
-          image: atcr.io/r/evan.jarrett.net/git-summarizer:latest
+          image: atcr.io/evan.jarrett.net/git-summarizer:latest
           ports:
             - containerPort: 8000
           envFrom:
