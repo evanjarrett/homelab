@@ -21,6 +21,7 @@ parameters:
   staleReplicaTimeout: "30"
   fromBackup: ""
   fsType: "ext4"
+  recurringJobSelector: '[]'
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -35,6 +36,9 @@ data:
 
     [hermes-3-8b]
     model = /models/Hermes-3-Llama-3.1-8B-Q4_K_M.gguf
+
+    [qwen3-coder-30b]
+    model = /models/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -47,7 +51,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 200Gi
+      storage: 500Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -94,6 +98,12 @@ spec:
                 curl -L -o Hermes-3-Llama-3.1-8B-Q4_K_M.gguf \
                   "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf"
               fi
+              # Qwen3-Coder 30B-A3B for coding tasks
+              if [ ! -f "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ]; then
+                echo "Downloading Qwen3-Coder 30B-A3B..."
+                curl -L -o Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
+                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+              fi
               echo "Models ready."
           volumeMounts:
             - name: models
@@ -117,7 +127,7 @@ spec:
             - "-t"
             - "16"
             - "--models-max"
-            - "2"
+            - "3"
             - "-c"
             - "32768"
           env: []
@@ -135,6 +145,7 @@ spec:
                     done
                     curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-vl-8b"}'
                     curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"hermes-3-8b"}'
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-coder-30b"}'
           ports:
             - containerPort: 8080
               name: http
