@@ -53,6 +53,7 @@ spec:
               drop:
                 - ALL
           image: atcr.io/evan.jarrett.net/git-summarizer:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
