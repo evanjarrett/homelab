@@ -130,6 +130,7 @@ spec:
             - "3"
             - "-c"
             - "32768"
+            - "--metrics"
           env: []
           lifecycle:
             postStart:
