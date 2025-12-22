@@ -94,3 +94,23 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-git-summarizer-to-llama
+  namespace: llm
+spec:
+  podSelector:
+    matchLabels:
+      app: git-summarizer
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: llama-server
+      ports:
+        - protocol: TCP
+          port: 8080
