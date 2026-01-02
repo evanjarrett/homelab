@@ -15,7 +15,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: kubebench
-        image: aquasec/kube-bench:v0.8.0
+        image: aquasec/kube-bench:v0.14.1
         command: ["kube-bench"]
         args: 
           - --json
