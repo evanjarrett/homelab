@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: metallb-helmrelease
+  namespace: metallb
+spec:
+  releaseName: metallb
+  chart:
+    spec:
+      chart: metallb
+      sourceRef:
+        kind: HelmRepository
+        name: metallb-helmrepo
+        namespace: flux-system
+      version: 0.15.3
+  interval: 2h
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
