@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/factory"
+	"github.com/evanjarrett/homelab/internal/config"
+	"github.com/evanjarrett/homelab/internal/factory"
 	"github.com/stretchr/testify/require"
 )
 

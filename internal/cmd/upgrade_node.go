@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/factory"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/output"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/talos"
+	"github.com/evanjarrett/homelab/internal/factory"
+	"github.com/evanjarrett/homelab/internal/output"
+	"github.com/evanjarrett/homelab/internal/talos"
 	"github.com/spf13/cobra"
 )
 

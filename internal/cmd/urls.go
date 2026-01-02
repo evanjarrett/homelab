@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/factory"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/output"
+	"github.com/evanjarrett/homelab/internal/factory"
+	"github.com/evanjarrett/homelab/internal/output"
 	"github.com/spf13/cobra"
 )
 

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/talos"
+	"github.com/evanjarrett/homelab/internal/config"
+	"github.com/evanjarrett/homelab/internal/talos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,11 +33,11 @@ func TestRunStatusWithClient_AllNodesReachable(t *testing.T) {
 	mock := &talos.MockClient{
 		GetNodeStatusFunc: func(ctx context.Context, nodeIP, profile, role string, secureboot bool) talos.NodeStatus {
 			return talos.NodeStatus{
-				IP:        nodeIP,
-				Profile:   profile,
-				Role:      role,
-				Version:   "1.9.0",
-				Reachable: true,
+				IP:         nodeIP,
+				Profile:    profile,
+				Role:       role,
+				Version:    "1.9.0",
+				Reachable:  true,
 				Secureboot: secureboot,
 			}
 		},
@@ -70,11 +70,11 @@ func TestRunStatusWithClient_SomeNodesUnreachable(t *testing.T) {
 				version = "N/A"
 			}
 			return talos.NodeStatus{
-				IP:        nodeIP,
-				Profile:   profile,
-				Role:      role,
-				Version:   version,
-				Reachable: reachable,
+				IP:         nodeIP,
+				Profile:    profile,
+				Role:       role,
+				Version:    version,
+				Reachable:  reachable,
 				Secureboot: secureboot,
 			}
 		},
@@ -110,11 +110,11 @@ func TestRunStatusWithClient_MixedRoles(t *testing.T) {
 			calledWith[nodeIP] = true
 			mu.Unlock()
 			return talos.NodeStatus{
-				IP:        nodeIP,
-				Profile:   profile,
-				Role:      role,
-				Version:   "1.9.0",
-				Reachable: true,
+				IP:         nodeIP,
+				Profile:    profile,
+				Role:       role,
+				Version:    "1.9.0",
+				Reachable:  true,
 				Secureboot: secureboot,
 			}
 		},
@@ -154,11 +154,11 @@ func TestRunStatusWithClient_SecurebootIndicators(t *testing.T) {
 			securebootNodes[nodeIP] = secureboot
 			mu.Unlock()
 			return talos.NodeStatus{
-				IP:        nodeIP,
-				Profile:   profile,
-				Role:      role,
-				Version:   "1.9.0",
-				Reachable: true,
+				IP:         nodeIP,
+				Profile:    profile,
+				Role:       role,
+				Version:    "1.9.0",
+				Reachable:  true,
 				Secureboot: secureboot,
 			}
 		},

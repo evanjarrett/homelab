@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
+	"github.com/evanjarrett/homelab/internal/config"
 	"gopkg.in/yaml.v3"
 )
 

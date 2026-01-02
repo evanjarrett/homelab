@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/cmd"
+	"github.com/evanjarrett/homelab/internal/cmd"
 )
 
 // Version is set at build time

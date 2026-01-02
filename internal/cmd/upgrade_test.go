@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/factory"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/talos"
+	"github.com/evanjarrett/homelab/internal/config"
+	"github.com/evanjarrett/homelab/internal/factory"
+	"github.com/evanjarrett/homelab/internal/talos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,8 +26,8 @@ func TestIsVersion_ValidVersions(t *testing.T) {
 		{"1.7.0", true},
 		{"1.12.0", true},
 		{"2.0.0", true},
-		{"1.7", true},  // Two-part version
-		{"1", true},    // Single number
+		{"1.7", true}, // Two-part version
+		{"1", true},   // Single number
 		{"10.20.30", true},
 	}
 
@@ -44,7 +44,7 @@ func TestIsVersion_IPAddresses(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		{"192.168.1.1", false},   // 3 dots = IP
+		{"192.168.1.1", false}, // 3 dots = IP
 		{"192.168.1.161", false},
 		{"10.0.0.1", false},
 		{"172.16.0.100", false},
@@ -63,11 +63,11 @@ func TestIsVersion_InvalidInputs(t *testing.T) {
 		input    string
 		expected bool
 	}{
-		{"", false},           // Empty string
-		{"all", false},        // Target keyword
-		{"workers", false},    // Target keyword
+		{"", false},        // Empty string
+		{"all", false},     // Target keyword
+		{"workers", false}, // Target keyword
 		{"controlplanes", false},
-		{"v1.7.0", false},     // Starts with letter
+		{"v1.7.0", false}, // Starts with letter
 		{"profile-name", false},
 	}
 

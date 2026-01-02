@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/output"
+	"github.com/evanjarrett/homelab/internal/config"
+	"github.com/evanjarrett/homelab/internal/output"
 	"github.com/spf13/cobra"
 )
 

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evanjarrett/homelab/internal/talosupgrade/config"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/factory"
-	"github.com/evanjarrett/homelab/internal/talosupgrade/talos"
+	"github.com/evanjarrett/homelab/internal/config"
+	"github.com/evanjarrett/homelab/internal/factory"
+	"github.com/evanjarrett/homelab/internal/talos"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

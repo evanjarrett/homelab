@@ -17,13 +17,13 @@ import (
 
 // NodeStatus represents the status of a single node
 type NodeStatus struct {
-	IP         string
-	Profile    string
-	Role       string
-	Version    string
+	IP          string
+	Profile     string
+	Role        string
+	Version     string
 	MachineType string
-	Secureboot bool
-	Reachable  bool
+	Secureboot  bool
+	Reachable   bool
 }
 
 // Client wraps the Talos SDK client
@@ -226,12 +226,12 @@ func (c *Client) GetK8sNodeName(ctx context.Context, nodeIP string) string {
 // GetNodeStatus retrieves comprehensive status for a node
 func (c *Client) GetNodeStatus(ctx context.Context, nodeIP, profile, role string, secureboot bool) NodeStatus {
 	status := NodeStatus{
-		IP:         nodeIP,
-		Profile:    profile,
-		Role:       role,
-		Secureboot: secureboot,
-		Reachable:  false,
-		Version:    "N/A",
+		IP:          nodeIP,
+		Profile:     profile,
+		Role:        role,
+		Secureboot:  secureboot,
+		Reachable:   false,
+		Version:     "N/A",
 		MachineType: "unknown",
 	}
 
@@ -256,12 +256,12 @@ func (c *Client) GetNodeStatus(ctx context.Context, nodeIP, profile, role string
 
 // UpgradeProgress represents the current state of an upgrade
 type UpgradeProgress struct {
-	Stage   string // Machine stage: upgrading, rebooting, booting, running
-	Phase   string // Current phase name
-	Task    string // Current task name
-	Action  string // START or STOP
-	Error   string // Error message if any
-	Done    bool   // True when upgrade is complete (node is running)
+	Stage  string // Machine stage: upgrading, rebooting, booting, running
+	Phase  string // Current phase name
+	Task   string // Current task name
+	Action string // START or STOP
+	Error  string // Error message if any
+	Done   bool   // True when upgrade is complete (node is running)
 }
 
 // ProgressCallback is called for each upgrade progress event
