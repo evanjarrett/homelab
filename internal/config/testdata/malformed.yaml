@@ -1,0 +1,4 @@
+profiles:
+  basic
+    arch: amd64
+  invalid yaml here

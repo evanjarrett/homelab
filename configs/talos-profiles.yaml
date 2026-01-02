@@ -1,0 +1,110 @@
+# Talos Upgrade Configuration
+# Node profiles and cluster topology for talos-upgrade tool
+
+settings:
+  factory_base_url: "https://factory.talos.dev"
+  default_timeout_seconds: 600
+  default_preserve: true
+  github_releases_url: "https://api.github.com/repos/siderolabs/talos/releases/latest"
+
+# Node profiles define the hardware configurations
+profiles:
+  amd64-intel:
+    description: "Intel GPU nodes with secureboot"
+    arch: amd64
+    platform: metal
+    secureboot: true
+    extensions:
+      - siderolabs/gasket-driver
+      - siderolabs/i915
+      - siderolabs/iscsi-tools
+      - siderolabs/nut-client
+      - siderolabs/realtek-firmware
+      - siderolabs/thunderbolt
+      - siderolabs/util-linux-tools
+
+  amd64-hybrid:
+    description: "AMD+Intel hybrid node with secureboot"
+    arch: amd64
+    platform: metal
+    secureboot: true
+    kernel_args:
+      - amd_iommu=off
+    extensions:
+      - siderolabs/amd-ucode
+      - siderolabs/amdgpu
+      - siderolabs/gasket-driver
+      - siderolabs/i915
+      - siderolabs/intel-ucode
+      - siderolabs/iscsi-tools
+      - siderolabs/nut-client
+      - siderolabs/realtek-firmware
+      - siderolabs/thunderbolt
+      - siderolabs/util-linux-tools
+
+  arm64-rpi:
+    description: "Raspberry Pi workers"
+    arch: arm64
+    platform: metal
+    secureboot: false
+    overlay:
+      name: rpi_generic
+      image: siderolabs/sbc-raspberrypi
+    extensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
+
+  arm64-turing:
+    description: "Turing RK1 control planes"
+    arch: arm64
+    platform: metal
+    secureboot: false
+    overlay:
+      name: turingrk1
+      image: siderolabs/sbc-rockchip
+    extensions:
+      - siderolabs/iscsi-tools
+      - siderolabs/util-linux-tools
+
+# Node definitions mapping IPs to profiles and roles
+nodes:
+  # Raspberry Pi workers (131-136)
+  - ip: 192.168.1.131
+    profile: arm64-rpi
+    role: worker
+  - ip: 192.168.1.132
+    profile: arm64-rpi
+    role: worker
+  - ip: 192.168.1.133
+    profile: arm64-rpi
+    role: worker
+  - ip: 192.168.1.134
+    profile: arm64-rpi
+    role: worker
+  - ip: 192.168.1.135
+    profile: arm64-rpi
+    role: worker
+  - ip: 192.168.1.136
+    profile: arm64-rpi
+    role: worker
+
+  # Turing RK1 control planes (137-138)
+  - ip: 192.168.1.137
+    profile: arm64-turing
+    role: worker
+  - ip: 192.168.1.138
+    profile: arm64-turing
+    role: worker
+
+  # Intel GPU control planes (161-162)
+  - ip: 192.168.1.161
+    profile: amd64-intel
+    role: controlplane
+  - ip: 192.168.1.162
+    profile: amd64-intel
+    role: controlplane
+
+  # AMD+Intel hybrid control plane (163)
+  - ip: 192.168.1.163
+    profile: amd64-hybrid
+    role: controlplane

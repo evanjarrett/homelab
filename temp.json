@@ -1,0 +1,62 @@
+{
+  "apiVersion": "v1",
+  "kind": "Namespace",
+  "metadata": {
+    "creationTimestamp": "2025-01-01T01:19:09Z",
+    "deletionTimestamp": "2026-01-02T04:19:12Z",
+    "labels": {
+      "kubernetes.io/metadata.name": "longhorn-system",
+      "kustomize.toolkit.fluxcd.io/name": "infrastructure",
+      "kustomize.toolkit.fluxcd.io/namespace": "flux-system",
+      "pod-security.kubernetes.io/audit": "privileged",
+      "pod-security.kubernetes.io/enforce": "privileged",
+      "pod-security.kubernetes.io/warn": "privileged"
+    },
+    "name": "longhorn-system",
+    "resourceVersion": "243308753",
+    "uid": "4952e49c-3c24-4c41-85de-2a90d6aac6e5"
+  },
+  "spec": {
+    "finalizers": []
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-01-02T04:19:22Z",
+        "message": "All resources successfully discovered",
+        "reason": "ResourcesDiscovered",
+        "status": "False",
+        "type": "NamespaceDeletionDiscoveryFailure"
+      },
+      {
+        "lastTransitionTime": "2026-01-02T04:19:22Z",
+        "message": "All legacy kube types successfully parsed",
+        "reason": "ParsedGroupVersions",
+        "status": "False",
+        "type": "NamespaceDeletionGroupVersionParsingFailure"
+      },
+      {
+        "lastTransitionTime": "2026-01-02T04:30:46Z",
+        "message": "All content successfully deleted, may be waiting on finalization",
+        "reason": "ContentDeleted",
+        "status": "False",
+        "type": "NamespaceDeletionContentFailure"
+      },
+      {
+        "lastTransitionTime": "2026-01-02T04:20:15Z",
+        "message": "Some resources are remaining: backups.longhorn.io has 948 resource instances, backuptargets.longhorn.io has 1 resource instances, backupvolumes.longhorn.io has 14 resource instances, engineimages.longhorn.io has 1 resource instances, engines.longhorn.io has 11 resource instances, nodes.longhorn.io has 11 resource instances, orphans.longhorn.io has 3 resource instances, replicas.longhorn.io has 31 resource instances, snapshots.longhorn.io has 93 resource instances, systembackups.longhorn.io has 8 resource instances, volumeattachments.longhorn.io has 11 resource instances, volumes.longhorn.io has 11 resource instances",
+        "reason": "SomeResourcesRemain",
+        "status": "True",
+        "type": "NamespaceContentRemaining"
+      },
+      {
+        "lastTransitionTime": "2026-01-02T04:20:15Z",
+        "message": "Some content in the namespace has finalizers remaining: longhorn.io in 1143 resource instances",
+        "reason": "SomeFinalizersRemain",
+        "status": "True",
+        "type": "NamespaceFinalizersRemaining"
+      }
+    ],
+    "phase": "Terminating"
+  }
+}
