@@ -1,9 +1,49 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":semanticCommits"
   ],
   "flux": {
     "fileMatch": ["\\.yaml$"]
-  }
+  },
+  "kubernetes": {
+    "fileMatch": ["\\.yaml$"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update image tags in HelmRelease values",
+      "fileMatch": ["\\.yaml$"],
+      "matchStrings": [
+        "image:\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?\\s*#\\s*renovate:\\s*image=(?<depName>[^\\s]+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge non-major updates",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    },
+    {
+      "description": "Group Helm releases",
+      "matchManagers": ["flux"],
+      "matchDatasources": ["helm"],
+      "groupName": "Helm charts"
+    },
+    {
+      "description": "Group container images",
+      "matchDatasources": ["docker"],
+      "groupName": "Container images"
+    },
+    {
+      "description": "Don't automerge major updates",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ],
+  "schedule": ["after 12am and before 6am"],
+  "timezone": "America/Chicago"
 }

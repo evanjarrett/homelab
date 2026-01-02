@@ -1,0 +1,190 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: wireguard-tls-route
+  namespace: wireguard
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - wireguard.j5t.io
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: wg-easy-http
+          namespace: wireguard
+          port: 51821
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wg-easy
+  namespace: wireguard
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wg-easy
+  strategy:
+    # Restrict to a Single wg-easy instance, on redeploys it will tear down the old one before bring a new one up.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wg-easy
+    spec:
+      containers:
+        - name: wg-easy
+          # Specify external hostname and port as environment variables
+          env:
+            - name: WG_HOST
+              value: wg.jarrett.net
+            - name: WG_PORT
+              value: "30000"
+            # Use iptables-nft instead of iptables-legacy (Talos 1.12 removed legacy iptables kernel modules)
+            - name: WG_POST_UP
+              value: "iptables-nft -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; iptables-nft -A INPUT -p udp -m udp --dport 30000 -j ACCEPT; iptables-nft -A FORWARD -i wg0 -j ACCEPT; iptables-nft -A FORWARD -o wg0 -j ACCEPT"
+            - name: WG_POST_DOWN
+              value: "iptables-nft -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; iptables-nft -D INPUT -p udp -m udp --dport 30000 -j ACCEPT; iptables-nft -D FORWARD -i wg0 -j ACCEPT; iptables-nft -D FORWARD -o wg0 -j ACCEPT"
+          image: ghcr.io/wg-easy/wg-easy
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 51820
+              name: wg
+              protocol: UDP
+            - containerPort: 51821
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 500m
+            limits:
+              memory: 1G
+              cpu: 1000m
+          # Use the http server for pod health checks
+          livenessProbe:
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          startupProbe:
+            failureThreshold: 30
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          # Give pod permissions to modify iptables and load the wireguard kernel module
+          securityContext:
+            privileged: true
+            capabilities:
+              add:
+                - NET_ADMIN
+                - SYS_MODULE
+          # Persistent storage location
+          volumeMounts:
+            - mountPath: /etc/wireguard
+              name: config
+            - mountPath: /lib/modules
+              name: host-modules
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: wg-easy-storage-claim
+        - name: host-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
+---
+apiVersion: v1
+
+kind: Service
+metadata:
+  name: wg-easy-wg
+  namespace: wireguard
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.13
+spec:
+  selector:
+    app.kubernetes.io/name: wg-easy
+  type: LoadBalancer
+  ports:
+    - name: wg
+      port: 30000
+      protocol: UDP
+      targetPort: 30000
+---
+apiVersion: v1
+
+kind: Service
+metadata:
+  name: wg-easy-http
+  namespace: wireguard
+spec:
+  ports:
+    - name: http
+      port: 51821
+      protocol: TCP
+      targetPort: 51821
+  selector:
+    app.kubernetes.io/name: wg-easy
+  type: ClusterIP
+---
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: pvc-wireguard-config
+  namespace: longhorn-system
+spec:
+  size: "268435456"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+  dataLocality: disabled
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-wireguard-config
+spec:
+  capacity:
+    storage: 256Mi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: pvc-wireguard-config
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wg-easy-storage-claim
+  namespace: wireguard
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 256Mi
+  volumeName: pvc-wireguard-config

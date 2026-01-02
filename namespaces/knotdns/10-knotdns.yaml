@@ -1,0 +1,148 @@
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: knotdns-data
+  namespace: longhorn-system
+  labels:
+    app: knotdns
+spec:
+  size: "1073741824"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: knotdns-data
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: knotdns-data
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: knotdns-data
+  namespace: knotdns
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: knotdns-data
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: knotdns
+  namespace: knotdns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: knotdns
+  template:
+    metadata:
+      labels:
+        app: knotdns
+    spec:
+      initContainers:
+        - name: init-storage
+          image: busybox
+          command: ["sh", "-c", "cp -p /data/knot.conf /config; cp -p /data/*.zone /storage"]
+          volumeMounts:
+            - name: storage
+              mountPath: /storage
+            - name: init-storage-data
+              mountPath: /data
+            - name: config
+              mountPath: /config
+      containers:
+        - name: knotdns
+          image: docker.io/cznic/knot:v3.4.7
+          resources:
+            requests:
+              memory: 48Mi
+              cpu: 100m
+            limits:
+              memory: 128Mi
+              cpu: 200m
+          args:
+            - "/sbin/knotd"
+          ports:
+            - containerPort: 53
+              protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+          livenessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: storage
+              mountPath: /storage
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: knotdns-data
+        - name: init-storage-data
+          secret:
+            secretName: knotdns-init-storage
+---
+apiVersion: v1
+
+kind: Service
+metadata:
+  name: knotdns-udp
+  namespace: knotdns
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.2
+    metallb.universe.tf/allow-shared-ip: knotdns
+spec:
+  selector:
+    app: knotdns
+  ports:
+    - name: dns-udp
+      protocol: UDP
+      port: 53
+      targetPort: 53
+  type: LoadBalancer
+---
+apiVersion: v1
+
+kind: Service
+metadata:
+  name: knotdns-tcp
+  namespace: knotdns
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.2
+    metallb.universe.tf/allow-shared-ip: knotdns
+spec:
+  selector:
+    app: knotdns
+  ports:
+    - name: dns-tcp
+      protocol: TCP
+      port: 53
+      targetPort: 53
+  type: LoadBalancer

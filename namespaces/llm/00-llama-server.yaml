@@ -1,0 +1,210 @@
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: llama-models
+  namespace: longhorn-system
+  labels:
+    app: llama-server
+spec:
+  size: "536870912000"
+  numberOfReplicas: 1
+  frontend: blockdev
+  accessMode: rwo
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: llama-models
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: llama-models
+    fsType: ext4
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-server-config
+  namespace: llm
+data:
+  models.ini: |
+    [qwen3-vl-8b]
+    model = /models/Qwen3VL-8B-Instruct-Q4_K_M.gguf
+    mmproj = /models/mmproj-Qwen3VL-8B-Instruct-F16.gguf
+
+    [hermes-3-8b]
+    model = /models/Hermes-3-Llama-3.1-8B-Q4_K_M.gguf
+
+    [qwen3-coder-30b]
+    model = /models/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llama-models
+  namespace: llm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: llama-models
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llama-server
+  template:
+    metadata:
+      labels:
+        app: llama-server
+    spec:
+      nodeSelector:
+        feature.node.kubernetes.io/custom-amd.gpu: "true"
+      initContainers:
+        - name: download-models
+          image: alpine:latest
+          command:
+            - sh
+            - -c
+            - |
+              apk add --no-cache curl
+              cd /models
+              # Qwen3-VL-8B vision model + mmproj
+              if [ ! -f "Qwen3VL-8B-Instruct-Q4_K_M.gguf" ]; then
+                echo "Downloading Qwen3-VL-8B..."
+                curl -L -o Qwen3VL-8B-Instruct-Q4_K_M.gguf \
+                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf"
+              fi
+              if [ ! -f "mmproj-Qwen3VL-8B-Instruct-F16.gguf" ]; then
+                echo "Downloading Qwen3-VL-8B mmproj..."
+                curl -L -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
+                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf"
+              fi
+              # Hermes 3 8B for tool calling (Home Assistant)
+              if [ ! -f "Hermes-3-Llama-3.1-8B-Q4_K_M.gguf" ]; then
+                echo "Downloading Hermes 3 8B..."
+                curl -L -o Hermes-3-Llama-3.1-8B-Q4_K_M.gguf \
+                  "https://huggingface.co/NousResearch/Hermes-3-Llama-3.1-8B-GGUF/resolve/main/Hermes-3-Llama-3.1-8B.Q4_K_M.gguf"
+              fi
+              # Qwen3-Coder 30B-A3B for coding tasks
+              if [ ! -f "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ]; then
+                echo "Downloading Qwen3-Coder 30B-A3B..."
+                curl -L -o Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
+                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+              fi
+              echo "Models ready."
+          volumeMounts:
+            - name: models
+              mountPath: /models
+      containers:
+        - name: llama-server
+          image: docker.io/kyuz0/amd-strix-halo-toolboxes:vulkan-radv
+          command: ["llama-server"]
+          args:
+            - "--models-dir"
+            - "/models"
+            - "--models-preset"
+            - "/config/models.ini"
+            - "-ngl"
+            - "999"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8080"
+            - "--no-mmap"
+            - "-t"
+            - "16"
+            - "--models-max"
+            - "3"
+            - "-c"
+            - "32768"
+            - "--metrics"
+          env: []
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    sleep 10
+                    for i in 1 2 3 4 5 6 7 8 9 10; do
+                      curl -s http://localhost:8080/health && break
+                      sleep 5
+                    done
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-vl-8b"}'
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"hermes-3-8b"}'
+                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-coder-30b"}'
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests:
+              cpu: "8"
+            limits:
+              cpu: "16"
+              amd.com/gpu: 1
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: models
+              mountPath: /cache
+              subPath: cache
+            - name: config
+              mountPath: /config
+            - name: dri
+              mountPath: /dev/dri
+            - name: kfd
+              mountPath: /dev/kfd
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: llama-models
+        - name: config
+          configMap:
+            name: llama-server-config
+        - name: dri
+          hostPath:
+            path: /dev/dri
+        - name: kfd
+          hostPath:
+            path: /dev/kfd
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi
+---
+apiVersion: v1
+
+kind: Service
+metadata:
+  name: llama-server
+  namespace: llm
+spec:
+  selector:
+    app: llama-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

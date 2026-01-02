@@ -1,0 +1,277 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: frigate-helmrelease
+  namespace: frigate
+spec:
+  releaseName: frigate
+  chart:
+    spec:
+      chart: frigate
+      sourceRef:
+        kind: HelmRepository
+        name: frigate-helmrepo
+        namespace: flux-system
+      version: 7.8.0
+  interval: 5m
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  uninstall:
+    disableHooks: true
+  values:
+    image:
+      tag: 0.16.3 # renovate: image=ghcr.io/blakeblackshear/frigate
+    envFromSecrets:
+      - frigate
+    env:
+      OPENAI_BASE_URL: "http://llama-server.llm.svc.cluster.local:8080/v1"
+    coral:
+      enabled: true
+      hostPath: /dev/apex_0
+    extraVolumes:
+      - name: coral-dev-two
+        hostPath:
+          path: /dev/apex_1
+    extraVolumeMounts:
+      - mountPath: /dev/apex_1
+        name: coral-dev-two
+    resources:
+      requests:
+        memory: 8Gi
+        cpu: 4000m
+        gpu.intel.com/i915: 1
+        squat.ai/apex: 2
+      limits:
+        memory: 16Gi
+        cpu: 4000m
+        gpu.intel.com/i915: 1
+        squat.ai/apex: 2
+    securityContext:
+      privileged: true
+      capabilities:
+        add: ["PERFMON"]
+    nodeSelector:
+      feature.node.kubernetes.io/coral.present: "true"
+      kubernetes.io/hostname: talos-cgy-c3m
+    persistence:
+      config:
+        enabled: true
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        skipuninstall: false
+        ephemeralWritableConfigYaml: true
+        volumeName: pvc-frigate-config
+      media:
+        enabled: true
+        accessMode: ReadWriteOnce
+        size: 100Gi
+        skipuninstall: true
+        volumeName: pvc-frigate-media
+    config: |
+      version: 0.16-0
+      mqtt:
+        enabled: true
+        host: mqtt.proxy.svc.cluster.local
+        port: 1883
+        topic_prefix: frigate
+        client_id: frigate
+        user: mqtt
+        password: '{FRIGATE_MQTT_PASSWORD}'
+        stats_interval: 60
+      ui:
+        timezone: America/Chicago
+      model:
+        path: plus://a41b38aaa8f7ef3b4234de6c7ab56ef1
+      detect:
+        enabled: true
+      detectors:
+        coral1:
+          type: edgetpu
+          device: pci:0
+        coral2:
+          type: edgetpu
+          device: pci:1
+      face_recognition:
+        enabled: true
+      lpr:
+        enabled: true
+        device: GPU
+        known_plates:
+          Tesla:
+            - "J4RR3TT"
+            - "JARRETT"
+      semantic_search:
+        enabled: true
+        model_size: large
+        reindex: false
+      genai:
+        enabled: true
+        provider: openai
+        api_key: "not-needed"
+        model: qwen3-vl-8b
+        prompt: >
+          You are analyzing images from a residential security camera pointed at
+          a driveway. The camera also captures part of the sidewalk and street.
+          Describe where the {label} is located (driveway, sidewalk, or street)
+          and what activity they appear to be doing. Keep your response to one
+          short sentence suitable for a phone notification. Do not use preambles
+          like "Here's a description" - just state the facts directly.
+        object_prompts:
+          person: >
+            You are analyzing images from a residential security camera pointed
+            at a driveway with views of the sidewalk and street. Describe this
+            person: their location (driveway, sidewalk, or street), what they
+            appear to be doing (walking, standing, approaching the door,
+            delivering something, etc.), and a brief description of their
+            appearance (clothing, build). Keep your response to one short
+            sentence suitable for a phone notification. No preambles.
+          car: >
+            You are analyzing images from a residential security camera pointed
+            at a driveway with views of the sidewalk and street. Describe this
+            vehicle: type (sedan, SUV, truck, van), color, its location
+            (parked in driveway, on the street, pulling in/out), and whether
+            it appears to be a delivery vehicle. Keep your response to one
+            short sentence suitable for a phone notification. No preambles.
+          package: >
+            You are analyzing images from a residential security camera pointed
+            at a driveway. A package has been detected. Describe where it was
+            placed (front door, porch, driveway, etc.) and its approximate size
+            (small, medium, large). Keep your response to one short sentence
+            suitable for a phone notification. No preambles.
+          dog: >
+            You are analyzing images from a residential security camera pointed
+            at a driveway with views of the sidewalk and street. Describe this
+            dog: its location (driveway, sidewalk, street), what it's doing
+            (walking, running, sitting, sniffing around), and whether it
+            appears to be a stray or with an owner. Keep your response to one
+            short sentence suitable for a phone notification. No preambles.
+          cat: >
+            You are analyzing images from a residential security camera pointed
+            at a driveway. Describe this cat: its location and what it's doing
+            (walking, sitting, hunting, etc.). Keep your response to one short
+            sentence suitable for a phone notification. No preambles.
+      objects:
+        track:
+          - person
+          - face
+          - license_plate
+          - car
+          - amazon
+          - fedex
+          - ups
+          - usps
+          - package
+          - waste_bin
+          - cat
+          - dog
+          - rabbit
+          - squirrel
+        filters:
+          car:
+            min_score: 0.6
+          person:
+            min_score: 0.65
+          dog:
+            min_score: 0.6
+      go2rtc:
+        streams:
+          4kcamera:
+            - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_4K}:554/h264Preview_01_sub
+            - ffmpeg:4kcamera#video=h264#audio=aac
+          driveway:
+            - rtsp://admin:{FRIGATE_CAMERA_PASSWORD}@{FRIGATE_CAMERA_DRIVEWAY}:554/h264Preview_01_main
+            - ffmpeg:driveway#video=h264#audio=aac
+        webrtc:
+          candidates:
+            - 192.168.3.14:8555
+      record:
+        enabled: true
+        retain:
+          days: 0
+          mode: all
+      ffmpeg:
+        hwaccel_args: preset-intel-qsv-h264
+        output_args:
+          record: preset-record-generic-audio-copy
+      cameras:
+        4kcamera:
+          ffmpeg:
+            inputs:
+              - path: rtsp://127.0.0.1:8554/4kcamera
+                roles:
+                  - detect
+                  - record
+          detect:
+            enabled: true
+          lpr:
+            enabled: true
+          snapshots:
+            enabled: true
+            required_zones:
+              - driveway-and-street
+          zones:
+            driveway-and-street:
+              coordinates: 1,0,1,1,0,1,0,0.34,0.536,0.047,0.544,0
+              inertia: 3
+              loitering_time: 0
+          objects:
+            filters:
+              car:
+                mask:
+                  - 0,0.34,0.538,0.045,0.343,0,0,0
+                  - 0.887,0.001,0.883,0.136,0.944,0.165,0.95,0.008
+              waste_bin:
+                mask: 0.538,0.049,0.608,0.08,0.609,0.004,0.542,0.003
+              package:
+                mask: 
+                  0.019,0.328,0.076,0.621,0.093,0.607,0.122,0.707,0.002,0.779,0.001,0.34
+          motion:
+            mask: 0.141,0,0.143,0.091,0.241,0.05,0.239,0
+          review:
+            alerts:
+              required_zones: driveway-and-street
+        driveway:
+          ffmpeg:
+            inputs:
+              - path: rtsp://127.0.0.1:8554/driveway
+                roles:
+                  - detect
+                  - record
+          detect:
+            enabled: true
+          lpr:
+            enabled: false
+          snapshots:
+            enabled: true
+            required_zones:
+              - front_house
+          zones:
+            front_house:
+              coordinates: 
+                0,1,1,1,1,0.678,1,0.451,0.941,0.419,0.886,0.369,0.867,0.324,0.864,0.18,0.664,0.153,0.451,0.155,0.205,0.186
+              inertia: 5
+              loitering_time: 3
+          objects:
+            filters:
+              person:
+                min_area: 10000
+                mask: 0.493,0.315,0.539,0.304,0.54,0.191,0.49,0.193
+              car:
+                min_area: 100000
+                mask: 
+                  0.345,0.997,0.292,0.84,0.235,0.536,0.24,0.512,0.684,0.386,0.686,0.234,0.829,0.222,0.824,0.407,0.997,0.525,0.997,0.003,0.005,0.005,0.003,0.999
+              waste_bin:
+                mask: 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
+              package:
+                mask:
+                  - 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
+                  - 0.428,0.52,0.461,0.568,0.463,0.583,0.411,0.599,0.381,0.535
+          review:
+            alerts:
+              required_zones: front_house
+          motion:
+            mask: 0.257,0.269,0.347,0.245,0.361,0.382,0.273,0.408
+            threshold: 50
+            contour_area: 20

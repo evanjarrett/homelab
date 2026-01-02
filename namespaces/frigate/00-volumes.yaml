@@ -1,0 +1,27 @@
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: pvc-frigate-config
+  namespace: longhorn-system
+  labels:
+    app: frigate
+spec:
+  size: "10737418240"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+  dataLocality: disabled
+---
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: pvc-frigate-media
+  namespace: longhorn-system
+  labels:
+    app: frigate
+spec:
+  size: "107374182400"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+  dataLocality: disabled

@@ -1,0 +1,115 @@
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: grafana-data
+  namespace: longhorn-system
+  labels:
+    app: grafana
+spec:
+  size: "10737418240"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-data
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: grafana-data
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: grafana-data
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana-helmrelease
+  namespace: monitoring
+spec:
+  releaseName: grafana
+  chart:
+    spec:
+      chart: grafana
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-helmrepo
+        namespace: flux-system
+      version: 10.4.1
+  interval: 2h
+  timeout: 10m
+  install:
+    createNamespace: true
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    persistence:
+      type: pvc
+      enabled: true
+      existingClaim: grafana-data
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: victoriametrics
+            type: prometheus
+            orgId: 1
+            url: http://victoria-metrics-server.monitoring.svc.cluster.local:8428/
+            access: proxy
+            isDefault: true
+            updateIntervalSeconds: 10
+            editable: true
+
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: true
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+    dashboards:
+      default:
+        victoriametrics:
+          gnetId: 11176
+          revision: 18
+          datasource: victoriametrics
+        vmagent:
+          gnetId: 12683
+          revision: 7
+          datasource: victoriametrics
+        kubernetes:
+          gnetId: 14205
+          revision: 1
+          datasource: victoriametrics

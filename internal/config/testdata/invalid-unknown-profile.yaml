@@ -1,0 +1,11 @@
+profiles:
+  basic:
+    arch: amd64
+    platform: metal
+    secureboot: false
+    extensions: []
+
+nodes:
+  - ip: 192.168.1.1
+    profile: nonexistent
+    role: controlplane
