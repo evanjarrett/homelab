@@ -73,10 +73,6 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("no profiles defined")
 	}
 
-	if len(c.Nodes) == 0 {
-		return fmt.Errorf("no nodes defined")
-	}
-
 	// Validate each profile
 	for name, profile := range c.Profiles {
 		if profile.Arch == "" {
@@ -87,7 +83,15 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	// Validate each node references a valid profile
+	// Either nodes or detection must be configured
+	hasNodes := len(c.Nodes) > 0
+	hasDetection := c.Detection != nil && len(c.Detection.Rules) > 0
+
+	if !hasNodes && !hasDetection {
+		return fmt.Errorf("either nodes or detection rules must be defined")
+	}
+
+	// Validate node references (if using legacy nodes config)
 	for _, node := range c.Nodes {
 		if node.IP == "" {
 			return fmt.Errorf("node with empty IP found")
@@ -103,7 +107,27 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	// Validate detection rules reference valid profiles
+	if c.Detection != nil {
+		for i, rule := range c.Detection.Rules {
+			if rule.Profile == "" {
+				return fmt.Errorf("detection rule %d: profile is required", i)
+			}
+			if _, ok := c.Profiles[rule.Profile]; !ok {
+				return fmt.Errorf("detection rule %d: references unknown profile %s", i, rule.Profile)
+			}
+			if rule.Match.SystemManufacturer == "" && rule.Match.ProcessorManufacturer == "" {
+				return fmt.Errorf("detection rule %d: at least one match criterion required", i)
+			}
+		}
+	}
+
 	return nil
+}
+
+// HasDetection returns true if detection rules are configured
+func (c *Config) HasDetection() bool {
+	return c.Detection != nil && len(c.Detection.Rules) > 0
 }
 
 // SetDefaults fills in default values for settings

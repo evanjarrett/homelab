@@ -9,7 +9,10 @@ import (
 	"github.com/cosi-project/runtime/pkg/resource"
 	"github.com/siderolabs/talos/pkg/machinery/api/machine"
 	talosclient "github.com/siderolabs/talos/pkg/machinery/client"
+	"github.com/siderolabs/talos/pkg/machinery/resources/cluster"
+	"github.com/siderolabs/talos/pkg/machinery/resources/hardware"
 	"github.com/siderolabs/talos/pkg/machinery/resources/k8s"
+	"github.com/siderolabs/talos/pkg/machinery/resources/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -117,6 +120,34 @@ func (c *Client) GetMachineType(ctx context.Context, nodeIP string) (string, err
 
 	// Return unknown - the caller should use the role from config
 	return "unknown", nil
+}
+
+// GetExtensions retrieves the list of installed extensions for a node
+func (c *Client) GetExtensions(ctx context.Context, nodeIP string) ([]ExtensionInfo, error) {
+	nodeCtx := talosclient.WithNode(ctx, nodeIP)
+
+	// Query ExtensionStatus resources via COSI
+	list, err := c.talos.COSIList(nodeCtx, resource.NewMetadata(runtime.NamespaceName, runtime.ExtensionStatusType, "", resource.VersionUndefined))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list extensions: %w", err)
+	}
+
+	var extensions []ExtensionInfo
+	for _, res := range list.Items {
+		status, ok := res.(*runtime.ExtensionStatus)
+		if !ok {
+			continue
+		}
+
+		spec := status.TypedSpec()
+		extensions = append(extensions, ExtensionInfo{
+			Name:    spec.Metadata.Name,
+			Version: spec.Metadata.Version,
+			Image:   spec.Image,
+		})
+	}
+
+	return extensions, nil
 }
 
 // IsReachable checks if a node is reachable via the Talos API
@@ -271,6 +302,11 @@ type ProgressCallback func(UpgradeProgress)
 // It handles the node reboot by reconnecting and waiting for the node to reach RUNNING state.
 // Since the upgrade has already been initiated before this is called, any disconnect
 // means the node is rebooting and we should wait for it to come back.
+//
+// IMPORTANT: The upgrade sequence emits RUNNING twice:
+// 1. Before reboot (system still running while staging upgrade)
+// 2. After reboot (new system fully booted)
+// We must wait for the second RUNNING, which comes AFTER seeing UPGRADING/REBOOTING or connection loss.
 func (c *Client) WatchUpgrade(ctx context.Context, nodeIP string, timeout time.Duration, onProgress ProgressCallback) error {
 	clock := c.clock
 	if clock == nil {
@@ -293,8 +329,47 @@ func (c *Client) WatchUpgrade(ctx context.Context, nodeIP string, timeout time.D
 		c.talos.EventsWatchV2(watchCtx, eventCh, talosclient.WithTailEvents(-1))
 	}()
 
-	// Process events until done or timeout
-	// Since upgrade was already initiated, any disconnect means we wait for reboot
+	// Track if we've seen upgrade-related stages (upgrading, rebooting, or connection loss)
+	// We only consider RUNNING as "done" after seeing one of these
+	sawUpgradeStage := false
+
+	// Wait for first event with a startup timeout to detect silent connection failures
+	const startupTimeout = 15 * time.Second
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-clock.After(startupTimeout):
+		// No events received - event stream may have failed silently
+		// Fall back to polling for node to come back
+		if onProgress != nil {
+			onProgress(UpgradeProgress{Stage: "rebooting", Action: "no events received, polling"})
+		}
+		return c.waitForRunning(ctx, nodeIP, deadline.Sub(clock.Now()), onProgress)
+	case result := <-eventCh:
+		if result.Error != nil {
+			// Stream error on first event - node is likely rebooting
+			if onProgress != nil {
+				onProgress(UpgradeProgress{Stage: "rebooting", Action: "connection lost"})
+			}
+			return c.waitForRunning(ctx, nodeIP, deadline.Sub(clock.Now()), onProgress)
+		}
+		// Process first event
+		progress := c.parseEvent(result.Event)
+		if progress != nil {
+			if onProgress != nil {
+				onProgress(*progress)
+			}
+			// Track upgrade stages
+			if progress.Stage == "upgrading" || progress.Stage == "rebooting" {
+				sawUpgradeStage = true
+			}
+			if progress.Error != "" {
+				return fmt.Errorf("upgrade failed: %s", progress.Error)
+			}
+		}
+	}
+
+	// Process remaining events until done or timeout
 	for {
 		select {
 		case <-ctx.Done():
@@ -305,7 +380,8 @@ func (c *Client) WatchUpgrade(ctx context.Context, nodeIP string, timeout time.D
 
 		case result := <-eventCh:
 			if result.Error != nil {
-				// Stream error - node is likely rebooting
+				// Stream error - node is rebooting
+				sawUpgradeStage = true
 				if onProgress != nil {
 					onProgress(UpgradeProgress{Stage: "rebooting", Action: "connection lost"})
 				}
@@ -320,8 +396,14 @@ func (c *Client) WatchUpgrade(ctx context.Context, nodeIP string, timeout time.D
 					onProgress(*progress)
 				}
 
-				// Check if done
-				if progress.Done {
+				// Track upgrade stages
+				if progress.Stage == "upgrading" || progress.Stage == "rebooting" {
+					sawUpgradeStage = true
+				}
+
+				// Only consider RUNNING as done if we've seen an upgrade stage
+				// This prevents exiting on the pre-reboot RUNNING event
+				if progress.Stage == "running" && sawUpgradeStage {
 					return nil
 				}
 
@@ -360,11 +442,8 @@ func (c *Client) parseEvent(event talosclient.Event) *UpgradeProgress {
 	case *machine.MachineStatusEvent:
 		stage := e.GetStage()
 		progress.Stage = strings.ToLower(stage.String())
-
-		// Check if we're done (node is running)
-		if stage == machine.MachineStatusEvent_RUNNING {
-			progress.Done = true
-		}
+		// Note: Don't set Done here - let caller decide based on context
+		// (e.g., WatchUpgrade tracks sawUpgradeStage before accepting RUNNING as done)
 		return progress
 
 	default:
@@ -550,7 +629,8 @@ func (c *Client) waitForRunning(ctx context.Context, nodeIP string, remaining ti
 						if onProgress != nil {
 							onProgress(*progress)
 						}
-						if progress.Done {
+						// In waitForRunning, we're already past the reboot so RUNNING means done
+						if progress.Stage == "running" {
 							watchCancel()
 							// Also verify k8s node is ready
 							if c.k8s == nil || c.isK8sNodeReady(ctx, nodeIP) {
@@ -573,4 +653,128 @@ func (c *Client) waitForRunning(ctx context.Context, nodeIP string, remaining ti
 	}
 
 	return fmt.Errorf("timeout waiting for node %s to come back after reboot", nodeIP)
+}
+
+// GetClusterMembers discovers all nodes in the cluster by querying the Members resource.
+// This uses the default talosconfig endpoints to connect to the cluster.
+func (c *Client) GetClusterMembers(ctx context.Context) ([]ClusterMember, error) {
+	// Query Members resource - we need to query from any reachable node
+	// The SDK will use endpoints from talosconfig
+	list, err := c.talos.COSIList(ctx, resource.NewMetadata(cluster.NamespaceName, cluster.MemberType, "", resource.VersionUndefined))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster members: %w", err)
+	}
+
+	var members []ClusterMember
+	seen := make(map[string]bool)
+
+	for _, res := range list.Items {
+		member, ok := res.(*cluster.Member)
+		if !ok {
+			continue
+		}
+
+		spec := member.TypedSpec()
+		if len(spec.Addresses) == 0 {
+			continue
+		}
+
+		// Use the first IPv4 address as the primary IP
+		var primaryIP string
+		for _, addr := range spec.Addresses {
+			if addr.Is4() {
+				primaryIP = addr.String()
+				break
+			}
+		}
+		if primaryIP == "" {
+			primaryIP = spec.Addresses[0].String()
+		}
+
+		// Skip duplicates (members are replicated across all nodes)
+		if seen[primaryIP] {
+			continue
+		}
+		seen[primaryIP] = true
+
+		// Convert machine type to role string
+		role := "worker"
+		if spec.MachineType.String() == "controlplane" {
+			role = "controlplane"
+		}
+
+		members = append(members, ClusterMember{
+			IP:          primaryIP,
+			Hostname:    spec.Hostname,
+			Role:        role,
+			MachineType: spec.MachineType.String(),
+		})
+	}
+
+	return members, nil
+}
+
+// GetKernelCmdline retrieves the kernel command line from a node.
+func (c *Client) GetKernelCmdline(ctx context.Context, nodeIP string) (string, error) {
+	nodeCtx := talosclient.WithNode(ctx, nodeIP)
+
+	list, err := c.talos.COSIList(nodeCtx, resource.NewMetadata(runtime.NamespaceName, runtime.KernelCmdlineType, "", resource.VersionUndefined))
+	if err != nil {
+		return "", fmt.Errorf("failed to get kernel cmdline: %w", err)
+	}
+
+	for _, res := range list.Items {
+		cmdline, ok := res.(*runtime.KernelCmdline)
+		if !ok {
+			continue
+		}
+		return cmdline.TypedSpec().Cmdline, nil
+	}
+
+	return "", fmt.Errorf("no kernel cmdline found")
+}
+
+// GetHardwareInfo retrieves hardware information from a node for profile detection.
+func (c *Client) GetHardwareInfo(ctx context.Context, nodeIP string) (*HardwareInfo, error) {
+	nodeCtx := talosclient.WithNode(ctx, nodeIP)
+	info := &HardwareInfo{}
+
+	// Query SystemInformation resource
+	sysInfoList, err := c.talos.COSIList(nodeCtx, resource.NewMetadata(hardware.NamespaceName, hardware.SystemInformationType, "", resource.VersionUndefined))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get system information: %w", err)
+	}
+
+	for _, res := range sysInfoList.Items {
+		sysInfo, ok := res.(*hardware.SystemInformation)
+		if !ok {
+			continue
+		}
+		spec := sysInfo.TypedSpec()
+		info.SystemManufacturer = spec.Manufacturer
+		info.SystemProductName = spec.ProductName
+		break // Only one SystemInformation resource
+	}
+
+	// Query Processor resources
+	procList, err := c.talos.COSIList(nodeCtx, resource.NewMetadata(hardware.NamespaceName, hardware.ProcessorType, "", resource.VersionUndefined))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get processor information: %w", err)
+	}
+
+	for _, res := range procList.Items {
+		proc, ok := res.(*hardware.Processor)
+		if !ok {
+			continue
+		}
+		spec := proc.TypedSpec()
+		// Take the first processor with manufacturer info
+		if spec.Manufacturer != "" {
+			info.ProcessorManufacturer = spec.Manufacturer
+			info.ProcessorProductName = spec.ProductName
+			break
+		}
+	}
+
+	return info, nil
 }

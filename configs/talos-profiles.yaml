@@ -14,6 +14,8 @@ profiles:
     arch: amd64
     platform: metal
     secureboot: true
+    kernel_args:
+      - pci=realloc
     extensions:
       - siderolabs/gasket-driver
       - siderolabs/i915
@@ -22,6 +24,7 @@ profiles:
       - siderolabs/realtek-firmware
       - siderolabs/thunderbolt
       - siderolabs/util-linux-tools
+      - siderolabs/xe
 
   amd64-hybrid:
     description: "AMD+Intel hybrid node with secureboot"
@@ -41,6 +44,7 @@ profiles:
       - siderolabs/realtek-firmware
       - siderolabs/thunderbolt
       - siderolabs/util-linux-tools
+      - siderolabs/xe
 
   arm64-rpi:
     description: "Raspberry Pi workers"
@@ -66,45 +70,23 @@ profiles:
       - siderolabs/iscsi-tools
       - siderolabs/util-linux-tools
 
-# Node definitions mapping IPs to profiles and roles
-nodes:
-  # Raspberry Pi workers (131-136)
-  - ip: 192.168.1.131
-    profile: arm64-rpi
-    role: worker
-  - ip: 192.168.1.132
-    profile: arm64-rpi
-    role: worker
-  - ip: 192.168.1.133
-    profile: arm64-rpi
-    role: worker
-  - ip: 192.168.1.134
-    profile: arm64-rpi
-    role: worker
-  - ip: 192.168.1.135
-    profile: arm64-rpi
-    role: worker
-  - ip: 192.168.1.136
-    profile: arm64-rpi
-    role: worker
+# Detection rules for automatic profile matching
+# Nodes are discovered via Talos cluster members API
+# Profiles are detected based on hardware info
+detection:
+  rules:
+    - profile: arm64-rpi
+      match:
+        system_manufacturer: raspberrypi
 
-  # Turing RK1 control planes (137-138)
-  - ip: 192.168.1.137
-    profile: arm64-turing
-    role: worker
-  - ip: 192.168.1.138
-    profile: arm64-turing
-    role: worker
+    - profile: arm64-turing
+      match:
+        system_manufacturer: turing
 
-  # Intel GPU control planes (161-162)
-  - ip: 192.168.1.161
-    profile: amd64-intel
-    role: controlplane
-  - ip: 192.168.1.162
-    profile: amd64-intel
-    role: controlplane
+    - profile: amd64-hybrid
+      match:
+        processor_manufacturer: "Advanced Micro Devices"
 
-  # AMD+Intel hybrid control plane (163)
-  - ip: 192.168.1.163
-    profile: amd64-hybrid
-    role: controlplane
+    - profile: amd64-intel
+      match:
+        processor_manufacturer: Intel

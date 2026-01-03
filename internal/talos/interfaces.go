@@ -9,6 +9,29 @@ import (
 	talosclient "github.com/siderolabs/talos/pkg/machinery/client"
 )
 
+// ExtensionInfo represents information about an installed extension
+type ExtensionInfo struct {
+	Name    string // Extension name (e.g., "gasket-driver")
+	Version string // Extension version
+	Image   string // Full image reference
+}
+
+// ClusterMember represents a discovered cluster member
+type ClusterMember struct {
+	IP          string // Primary IP address
+	Hostname    string // Node hostname
+	Role        string // "controlplane" or "worker"
+	MachineType string // Raw machine type from Talos
+}
+
+// HardwareInfo represents hardware information for profile detection
+type HardwareInfo struct {
+	SystemManufacturer    string // e.g., "raspberrypi", "turing", "Framework"
+	SystemProductName     string // e.g., "Raspberry Pi Compute Module 4"
+	ProcessorManufacturer string // e.g., "Intel(R) Corporation", "Advanced Micro Devices"
+	ProcessorProductName  string // e.g., "Intel(R) Core(TM) i9-10850K"
+}
+
 // TalosClientInterface defines the interface for interacting with Talos nodes.
 // This interface enables mocking the Talos client for testing.
 type TalosClientInterface interface {
@@ -20,6 +43,9 @@ type TalosClientInterface interface {
 
 	// GetMachineType retrieves the machine type for a node
 	GetMachineType(ctx context.Context, nodeIP string) (string, error)
+
+	// GetExtensions retrieves the list of installed extensions for a node
+	GetExtensions(ctx context.Context, nodeIP string) ([]ExtensionInfo, error)
 
 	// IsReachable checks if a node is reachable via the Talos API
 	IsReachable(ctx context.Context, nodeIP string) bool
@@ -41,6 +67,15 @@ type TalosClientInterface interface {
 
 	// WaitForStaticPods waits for K8s control plane static pods to be healthy
 	WaitForStaticPods(ctx context.Context, nodeIP string, timeout time.Duration) error
+
+	// GetClusterMembers discovers all nodes in the cluster
+	GetClusterMembers(ctx context.Context) ([]ClusterMember, error)
+
+	// GetHardwareInfo retrieves hardware information for profile detection
+	GetHardwareInfo(ctx context.Context, nodeIP string) (*HardwareInfo, error)
+
+	// GetKernelCmdline retrieves the kernel command line from a node
+	GetKernelCmdline(ctx context.Context, nodeIP string) (string, error)
 }
 
 // Ensure Client implements TalosClientInterface
@@ -53,6 +88,9 @@ type MockClient struct {
 
 	// GetMachineTypeFunc is the mock implementation of GetMachineType
 	GetMachineTypeFunc func(ctx context.Context, nodeIP string) (string, error)
+
+	// GetExtensionsFunc is the mock implementation of GetExtensions
+	GetExtensionsFunc func(ctx context.Context, nodeIP string) ([]ExtensionInfo, error)
 
 	// IsReachableFunc is the mock implementation of IsReachable
 	IsReachableFunc func(ctx context.Context, nodeIP string) bool
@@ -74,6 +112,15 @@ type MockClient struct {
 
 	// WaitForStaticPodsFunc is the mock implementation of WaitForStaticPods
 	WaitForStaticPodsFunc func(ctx context.Context, nodeIP string, timeout time.Duration) error
+
+	// GetClusterMembersFunc is the mock implementation of GetClusterMembers
+	GetClusterMembersFunc func(ctx context.Context) ([]ClusterMember, error)
+
+	// GetHardwareInfoFunc is the mock implementation of GetHardwareInfo
+	GetHardwareInfoFunc func(ctx context.Context, nodeIP string) (*HardwareInfo, error)
+
+	// GetKernelCmdlineFunc is the mock implementation of GetKernelCmdline
+	GetKernelCmdlineFunc func(ctx context.Context, nodeIP string) (string, error)
 }
 
 func (m *MockClient) Close() error {
@@ -92,6 +139,13 @@ func (m *MockClient) GetMachineType(ctx context.Context, nodeIP string) (string,
 		return m.GetMachineTypeFunc(ctx, nodeIP)
 	}
 	return "unknown", nil
+}
+
+func (m *MockClient) GetExtensions(ctx context.Context, nodeIP string) ([]ExtensionInfo, error) {
+	if m.GetExtensionsFunc != nil {
+		return m.GetExtensionsFunc(ctx, nodeIP)
+	}
+	return []ExtensionInfo{}, nil
 }
 
 func (m *MockClient) IsReachable(ctx context.Context, nodeIP string) bool {
@@ -149,6 +203,27 @@ func (m *MockClient) WaitForStaticPods(ctx context.Context, nodeIP string, timeo
 		return m.WaitForStaticPodsFunc(ctx, nodeIP, timeout)
 	}
 	return nil
+}
+
+func (m *MockClient) GetClusterMembers(ctx context.Context) ([]ClusterMember, error) {
+	if m.GetClusterMembersFunc != nil {
+		return m.GetClusterMembersFunc(ctx)
+	}
+	return []ClusterMember{}, nil
+}
+
+func (m *MockClient) GetHardwareInfo(ctx context.Context, nodeIP string) (*HardwareInfo, error) {
+	if m.GetHardwareInfoFunc != nil {
+		return m.GetHardwareInfoFunc(ctx, nodeIP)
+	}
+	return &HardwareInfo{}, nil
+}
+
+func (m *MockClient) GetKernelCmdline(ctx context.Context, nodeIP string) (string, error) {
+	if m.GetKernelCmdlineFunc != nil {
+		return m.GetKernelCmdlineFunc(ctx, nodeIP)
+	}
+	return "", nil
 }
 
 // MockTalosMachineClient is a mock implementation of TalosMachineClient for testing

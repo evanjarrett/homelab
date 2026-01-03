@@ -1,10 +1,13 @@
 package config
 
+import "strings"
+
 // Config represents the complete configuration file
 type Config struct {
-	Settings Settings           `yaml:"settings"`
-	Profiles map[string]Profile `yaml:"profiles"`
-	Nodes    []Node             `yaml:"nodes"`
+	Settings  Settings           `yaml:"settings"`
+	Profiles  map[string]Profile `yaml:"profiles"`
+	Nodes     []Node             `yaml:"nodes,omitempty"`     // Deprecated: use detection rules instead
+	Detection *Detection         `yaml:"detection,omitempty"` // Auto-detection configuration
 }
 
 // Settings contains global configuration
@@ -37,6 +40,71 @@ type Node struct {
 	IP      string `yaml:"ip"`
 	Profile string `yaml:"profile"`
 	Role    string `yaml:"role"` // controlplane, worker
+}
+
+// Detection configures automatic profile detection
+type Detection struct {
+	Rules []DetectionRule `yaml:"rules"`
+}
+
+// DetectionRule maps hardware characteristics to a profile
+type DetectionRule struct {
+	Profile string         `yaml:"profile"`
+	Match   DetectionMatch `yaml:"match"`
+}
+
+// DetectionMatch defines the hardware characteristics to match
+type DetectionMatch struct {
+	SystemManufacturer    string `yaml:"system_manufacturer,omitempty"`
+	ProcessorManufacturer string `yaml:"processor_manufacturer,omitempty"`
+}
+
+// HardwareInfo represents detected hardware information
+type HardwareInfo struct {
+	SystemManufacturer    string
+	SystemProductName     string
+	ProcessorManufacturer string
+	ProcessorProductName  string
+}
+
+// DetectProfile finds the matching profile for given hardware info
+func (c *Config) DetectProfile(hw *HardwareInfo) (string, *Profile) {
+	if c.Detection == nil || hw == nil {
+		return "", nil
+	}
+
+	for _, rule := range c.Detection.Rules {
+		if matchesRule(hw, &rule.Match) {
+			if profile, ok := c.Profiles[rule.Profile]; ok {
+				return rule.Profile, &profile
+			}
+		}
+	}
+	return "", nil
+}
+
+// matchesRule checks if hardware info matches a detection rule
+func matchesRule(hw *HardwareInfo, match *DetectionMatch) bool {
+	// Check system manufacturer (case-insensitive contains match)
+	if match.SystemManufacturer != "" {
+		if !strings.Contains(strings.ToLower(hw.SystemManufacturer), strings.ToLower(match.SystemManufacturer)) {
+			return false
+		}
+	}
+
+	// Check processor manufacturer (case-insensitive contains match)
+	if match.ProcessorManufacturer != "" {
+		if !strings.Contains(strings.ToLower(hw.ProcessorManufacturer), strings.ToLower(match.ProcessorManufacturer)) {
+			return false
+		}
+	}
+
+	// At least one match criterion must be specified
+	if match.SystemManufacturer == "" && match.ProcessorManufacturer == "" {
+		return false
+	}
+
+	return true
 }
 
 // NodeRole constants

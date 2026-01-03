@@ -244,6 +244,95 @@ func TestGetNodesForTarget_NonexistentIP(t *testing.T) {
 }
 
 // ============================================================================
+// extensionsDiffer() Tests
+// ============================================================================
+
+func TestExtensionsDiffer_MatchingExtensions(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+		{Name: "iscsi-tools", Version: "1.0.0"},
+	}
+	expected := []string{"siderolabs/i915", "siderolabs/iscsi-tools"}
+
+	differs, diff := extensionsDiffer(running, expected)
+	assert.False(t, differs, "should not differ when extensions match")
+	assert.Empty(t, diff)
+}
+
+func TestExtensionsDiffer_MissingExtension(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+	}
+	expected := []string{"siderolabs/i915", "siderolabs/iscsi-tools"}
+
+	differs, diff := extensionsDiffer(running, expected)
+	assert.True(t, differs, "should differ when extension is missing")
+	assert.Contains(t, diff, "missing")
+	assert.Contains(t, diff, "iscsi-tools")
+}
+
+func TestExtensionsDiffer_ExtraExtension(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+		{Name: "iscsi-tools", Version: "1.0.0"},
+		{Name: "gasket-driver", Version: "1.0.0"},
+	}
+	expected := []string{"siderolabs/i915", "siderolabs/iscsi-tools"}
+
+	differs, diff := extensionsDiffer(running, expected)
+	assert.True(t, differs, "should differ when extra extension is present")
+	assert.Contains(t, diff, "extra")
+	assert.Contains(t, diff, "gasket-driver")
+}
+
+func TestExtensionsDiffer_BothMissingAndExtra(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+		{Name: "gasket-driver", Version: "1.0.0"},
+	}
+	expected := []string{"siderolabs/i915", "siderolabs/iscsi-tools"}
+
+	differs, diff := extensionsDiffer(running, expected)
+	assert.True(t, differs)
+	assert.Contains(t, diff, "missing")
+	assert.Contains(t, diff, "iscsi-tools")
+	assert.Contains(t, diff, "extra")
+	assert.Contains(t, diff, "gasket-driver")
+}
+
+func TestExtensionsDiffer_EmptyLists(t *testing.T) {
+	running := []talos.ExtensionInfo{}
+	expected := []string{}
+
+	differs, _ := extensionsDiffer(running, expected)
+	assert.False(t, differs, "empty lists should not differ")
+}
+
+func TestExtensionsDiffer_NoVendorPrefix(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+	}
+	// Extension without vendor prefix should still match
+	expected := []string{"i915"}
+
+	differs, _ := extensionsDiffer(running, expected)
+	assert.False(t, differs, "should handle extensions without vendor prefix")
+}
+
+func TestExtensionsDiffer_IgnoresInternalExtensions(t *testing.T) {
+	running := []talos.ExtensionInfo{
+		{Name: "i915", Version: "1.0.0"},
+		{Name: "schematic", Version: "abc123"},     // Internal - should be ignored
+		{Name: "modules.dep", Version: "6.18.1"},   // Internal - should be ignored
+	}
+	expected := []string{"siderolabs/i915"}
+
+	differs, diff := extensionsDiffer(running, expected)
+	assert.False(t, differs, "internal extensions should be ignored")
+	assert.Empty(t, diff)
+}
+
+// ============================================================================
 // upgradeNode() Tests
 // ============================================================================
 
@@ -257,13 +346,56 @@ func TestUpgradeNode_AlreadyAtVersion(t *testing.T) {
 		GetVersionFunc: func(ctx context.Context, nodeIP string) (string, error) {
 			return "1.9.0", nil // Same as target
 		},
+		GetExtensionsFunc: func(ctx context.Context, nodeIP string) ([]talos.ExtensionInfo, error) {
+			return []talos.ExtensionInfo{
+				{Name: "i915", Version: "1.0.0"},
+			}, nil
+		},
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:               node,
+		Image:              "factory.talos.dev/installer/abc:v1.9.0",
+		Version:            "1.9.0",
+		ExpectedExtensions: []string{"siderolabs/i915"},
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.NoError(t, err)
-	assert.True(t, skipped, "should skip node already at target version")
+	assert.True(t, skipped, "should skip node already at target version with matching extensions")
+}
+
+func TestUpgradeNode_SameVersionDifferentExtensions(t *testing.T) {
+	setupTestConfig()
+	cfg.Settings.DefaultTimeoutSeconds = 60
+	dryRun = true // Use dry run to simplify test
+	defer func() { dryRun = false }()
+	preserve = true
+
+	mock := &talos.MockClient{
+		GetVersionFunc: func(ctx context.Context, nodeIP string) (string, error) {
+			return "1.9.0", nil // Same as target version
+		},
+		GetExtensionsFunc: func(ctx context.Context, nodeIP string) ([]talos.ExtensionInfo, error) {
+			return []talos.ExtensionInfo{
+				{Name: "i915", Version: "1.0.0"},
+			}, nil
+		},
+	}
+
+	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
+	// Expected extensions include a new one not currently running
+	req := UpgradeRequest{
+		Node:               node,
+		Image:              "factory.talos.dev/installer/abc:v1.9.0",
+		Version:            "1.9.0",
+		ExpectedExtensions: []string{"siderolabs/i915", "siderolabs/gasket-driver"},
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
+
+	require.NoError(t, err)
+	assert.False(t, skipped, "should not skip when extensions differ even if version matches")
 }
 
 func TestUpgradeNode_DryRun(t *testing.T) {
@@ -284,7 +416,12 @@ func TestUpgradeNode_DryRun(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.NoError(t, err)
 	assert.False(t, skipped)
@@ -331,7 +468,12 @@ func TestUpgradeNode_Success_Worker(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.2", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.NoError(t, err)
 	assert.False(t, skipped)
@@ -367,7 +509,12 @@ func TestUpgradeNode_Success_ControlPlane(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleControlPlane}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.NoError(t, err)
 	assert.False(t, skipped)
@@ -398,7 +545,12 @@ func TestUpgradeNode_GetVersionError(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.NoError(t, err)
 	assert.False(t, skipped)
@@ -421,7 +573,12 @@ func TestUpgradeNode_UpgradeCommandFailure(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.Error(t, err)
 	assert.False(t, skipped)
@@ -447,7 +604,12 @@ func TestUpgradeNode_WatchUpgradeFailure(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	require.Error(t, err)
 	assert.False(t, skipped)
@@ -476,7 +638,12 @@ func TestUpgradeNode_ServiceWaitTimeout(t *testing.T) {
 	}
 
 	node := config.Node{IP: "192.168.1.1", Profile: "profile-a", Role: config.RoleWorker}
-	skipped, err := upgradeNode(context.Background(), mock, node, "factory.talos.dev/installer/abc:v1.9.0", "1.9.0")
+	req := UpgradeRequest{
+		Node:    node,
+		Image:   "factory.talos.dev/installer/abc:v1.9.0",
+		Version: "1.9.0",
+	}
+	skipped, err := upgradeNode(context.Background(), mock, req)
 
 	// Service wait timeout should log warning but not fail the upgrade
 	require.NoError(t, err)

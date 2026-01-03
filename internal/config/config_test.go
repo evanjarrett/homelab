@@ -98,7 +98,7 @@ func TestLoad_InvalidNoNodes(t *testing.T) {
 	cfg, err := Load(testdataPath(t, "invalid-no-nodes.yaml"))
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
-	assert.Contains(t, err.Error(), "no nodes defined")
+	assert.Contains(t, err.Error(), "either nodes or detection rules must be defined")
 }
 
 func TestLoad_InvalidNoProfiles(t *testing.T) {
@@ -166,7 +166,7 @@ func TestValidate_EmptyNodes(t *testing.T) {
 	}
 	err := cfg.Validate()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no nodes defined")
+	assert.Contains(t, err.Error(), "either nodes or detection rules must be defined")
 }
 
 func TestValidate_ProfileMissingArch(t *testing.T) {

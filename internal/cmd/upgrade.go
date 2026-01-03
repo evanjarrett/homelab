@@ -17,6 +17,108 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// internalExtensions are system-level extensions that should be ignored during comparison
+var internalExtensions = map[string]bool{
+	"schematic":   true, // Virtual extension from Image Factory
+	"modules.dep": true, // Combined modules.dep for all extensions
+}
+
+// UpgradeRequest contains all information needed to upgrade a node
+type UpgradeRequest struct {
+	Node               config.Node
+	Image              string   // Full installer image URL
+	Version            string   // Target Talos version
+	ExpectedExtensions []string // Extensions from profile
+	ExpectedKernelArgs []string // Kernel args from profile
+}
+
+// extensionsDiffer compares running extensions with expected extensions from the profile.
+// Returns true if there's a difference (upgrade needed), false otherwise.
+// Also returns a description of the difference.
+func extensionsDiffer(running []talos.ExtensionInfo, expected []string) (bool, string) {
+	// Build a set of running extension names (excluding internal extensions)
+	runningNames := make(map[string]bool)
+	for _, ext := range running {
+		if !internalExtensions[ext.Name] {
+			runningNames[ext.Name] = true
+		}
+	}
+
+	// Build a set of expected extension names (strip siderolabs/ prefix)
+	expectedNames := make(map[string]bool)
+	for _, ext := range expected {
+		name := ext
+		// Strip vendor prefix (e.g., "siderolabs/gasket-driver" -> "gasket-driver")
+		if idx := strings.LastIndex(ext, "/"); idx >= 0 {
+			name = ext[idx+1:]
+		}
+		expectedNames[name] = true
+	}
+
+	// Find missing (expected but not running)
+	var missing []string
+	for name := range expectedNames {
+		if !runningNames[name] {
+			missing = append(missing, name)
+		}
+	}
+
+	// Find extra (running but not expected)
+	var extra []string
+	for name := range runningNames {
+		if !expectedNames[name] {
+			extra = append(extra, name)
+		}
+	}
+
+	if len(missing) == 0 && len(extra) == 0 {
+		return false, ""
+	}
+
+	var parts []string
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		parts = append(parts, fmt.Sprintf("missing: %s", strings.Join(missing, ", ")))
+	}
+	if len(extra) > 0 {
+		sort.Strings(extra)
+		parts = append(parts, fmt.Sprintf("extra: %s", strings.Join(extra, ", ")))
+	}
+
+	return true, strings.Join(parts, "; ")
+}
+
+// kernelArgsDiffer compares running kernel cmdline with expected kernel args from the profile.
+// Returns true if there's a difference (upgrade needed), false otherwise.
+// Also returns a description of the difference.
+func kernelArgsDiffer(cmdline string, expected []string) (bool, string) {
+	if len(expected) == 0 {
+		return false, ""
+	}
+
+	// Split cmdline into individual args
+	cmdlineArgs := strings.Fields(cmdline)
+	cmdlineSet := make(map[string]bool)
+	for _, arg := range cmdlineArgs {
+		cmdlineSet[arg] = true
+	}
+
+	// Find missing kernel args
+	var missing []string
+	for _, arg := range expected {
+		if !cmdlineSet[arg] {
+			missing = append(missing, arg)
+		}
+	}
+
+	if len(missing) == 0 {
+		return false, ""
+	}
+
+	sort.Strings(missing)
+	return true, fmt.Sprintf("missing kernel args: %s", strings.Join(missing, ", "))
+}
+
 func upgradeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "upgrade [target] [version]",
@@ -126,8 +228,8 @@ func runUpgradeWithClients(ctx context.Context, talosClient talos.TalosClientInt
 		fmt.Println()
 	}
 
-	// Build list of nodes to upgrade
-	nodes, err := getNodesForTarget(target)
+	// Build list of nodes to upgrade (uses discovery if detection is configured)
+	nodes, err := getUpgradeNodes(ctx, talosClient, target)
 	if err != nil {
 		return err
 	}
@@ -183,11 +285,19 @@ func runUpgradeWithClients(ctx context.Context, talosClient talos.TalosClientInt
 	var skippedNodes []string
 	for _, node := range nodes {
 		image := profileImages[node.Profile]
+		profile := cfg.Profiles[node.Profile]
 
 		fmt.Println()
 		output.Separator()
 
-		skipped, err := upgradeNode(ctx, talosClient, node, image, version)
+		req := UpgradeRequest{
+			Node:               node,
+			Image:              image,
+			Version:            version,
+			ExpectedExtensions: profile.Extensions,
+			ExpectedKernelArgs: profile.KernelArgs,
+		}
+		skipped, err := upgradeNode(ctx, talosClient, req)
 		if err != nil {
 			failedNodes = append(failedNodes, node.IP)
 			output.LogError("Failed to upgrade %s: %v", node.IP, err)
@@ -224,7 +334,7 @@ func runUpgradeWithClients(ctx context.Context, talosClient talos.TalosClientInt
 	return runStatusWithClient(ctx, talosClient)
 }
 
-// getNodesForTarget returns the list of nodes matching the target
+// getNodesForTarget returns the list of nodes matching the target (legacy config)
 func getNodesForTarget(target string) ([]config.Node, error) {
 	switch target {
 	case "all":
@@ -249,33 +359,167 @@ func getNodesForTarget(target string) ([]config.Node, error) {
 	}
 }
 
+// getUpgradeNodes returns nodes for upgrade, using discovery if detection is configured
+func getUpgradeNodes(ctx context.Context, client talos.TalosClientInterface, target string) ([]config.Node, error) {
+	// If detection is configured, use discovery
+	if cfg.HasDetection() {
+		return discoverUpgradeNodes(ctx, client, target)
+	}
+
+	// Fall back to legacy config
+	return getNodesForTarget(target)
+}
+
+// discoverUpgradeNodes discovers nodes and builds config.Node structs with detected profiles
+func discoverUpgradeNodes(ctx context.Context, client talos.TalosClientInterface, target string) ([]config.Node, error) {
+	// Get cluster members
+	members, err := client.GetClusterMembers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover cluster members: %w", err)
+	}
+
+	var nodes []config.Node
+	for _, member := range members {
+		// Get hardware info for profile detection
+		hwInfo, err := client.GetHardwareInfo(ctx, member.IP)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get hardware info for %s: %w", member.IP, err)
+		}
+
+		// Convert to config.HardwareInfo for detection
+		cfgHwInfo := &config.HardwareInfo{
+			SystemManufacturer:    hwInfo.SystemManufacturer,
+			SystemProductName:     hwInfo.SystemProductName,
+			ProcessorManufacturer: hwInfo.ProcessorManufacturer,
+			ProcessorProductName:  hwInfo.ProcessorProductName,
+		}
+
+		// Detect profile
+		profileName, profile := cfg.DetectProfile(cfgHwInfo)
+		if profile == nil {
+			return nil, fmt.Errorf("no profile detected for node %s (hw: %+v)", member.IP, cfgHwInfo)
+		}
+
+		nodes = append(nodes, config.Node{
+			IP:      member.IP,
+			Profile: profileName,
+			Role:    member.Role,
+		})
+	}
+
+	// Filter by target
+	return filterNodesByTarget(nodes, target)
+}
+
+// filterNodesByTarget filters nodes based on target (all, workers, controlplanes, profile, IP)
+func filterNodesByTarget(nodes []config.Node, target string) ([]config.Node, error) {
+	switch target {
+	case "all":
+		// Order: workers first, then control planes
+		var workers, controlplanes []config.Node
+		for _, node := range nodes {
+			if node.Role == config.RoleWorker {
+				workers = append(workers, node)
+			} else {
+				controlplanes = append(controlplanes, node)
+			}
+		}
+		return append(workers, controlplanes...), nil
+
+	case "workers":
+		var filtered []config.Node
+		for _, node := range nodes {
+			if node.Role == config.RoleWorker {
+				filtered = append(filtered, node)
+			}
+		}
+		return filtered, nil
+
+	case "controlplanes":
+		var filtered []config.Node
+		for _, node := range nodes {
+			if node.Role == config.RoleControlPlane {
+				filtered = append(filtered, node)
+			}
+		}
+		return filtered, nil
+
+	default:
+		// Check if it's a node IP
+		for _, node := range nodes {
+			if node.IP == target {
+				return []config.Node{node}, nil
+			}
+		}
+
+		// Check if it's a profile name
+		var filtered []config.Node
+		for _, node := range nodes {
+			if node.Profile == target {
+				filtered = append(filtered, node)
+			}
+		}
+		if len(filtered) > 0 {
+			return filtered, nil
+		}
+
+		return nil, fmt.Errorf("unknown target: %s", target)
+	}
+}
+
 // upgradeNode upgrades a single node
-// Returns (skipped, error) - skipped is true if node was already at target version
-func upgradeNode(ctx context.Context, client talos.TalosClientInterface, node config.Node, image, version string) (bool, error) {
+// Returns (skipped, error) - skipped is true if node was already at target version/extensions/kernel args
+func upgradeNode(ctx context.Context, client talos.TalosClientInterface, req UpgradeRequest) (bool, error) {
 	// Get current version
-	currentVersion, err := client.GetVersion(ctx, node.IP)
+	currentVersion, err := client.GetVersion(ctx, req.Node.IP)
 	if err != nil {
 		currentVersion = "unknown"
 	}
 
-	// Skip if already at target version
-	if currentVersion == version {
-		output.LogSuccess("Node %s already at v%s, skipping", node.IP, version)
+	// Get current extensions
+	currentExtensions, err := client.GetExtensions(ctx, req.Node.IP)
+	if err != nil {
+		// Non-fatal: we'll just assume extensions differ
+		currentExtensions = nil
+	}
+
+	// Get current kernel cmdline
+	currentCmdline, err := client.GetKernelCmdline(ctx, req.Node.IP)
+	if err != nil {
+		// Non-fatal: we'll just assume kernel args differ
+		currentCmdline = ""
+	}
+
+	// Check if extensions differ
+	extDiffer, extDiff := extensionsDiffer(currentExtensions, req.ExpectedExtensions)
+
+	// Check if kernel args differ
+	kaDiffer, kaDiff := kernelArgsDiffer(currentCmdline, req.ExpectedKernelArgs)
+
+	// Skip if already at target version AND extensions match AND kernel args match
+	if currentVersion == req.Version && !extDiffer && !kaDiffer {
+		output.LogSuccess("Node %s already at v%s with matching config, skipping", req.Node.IP, req.Version)
 		return true, nil
 	}
 
-	output.LogInfo("Upgrading node %s (%s)", node.IP, node.Role)
+	output.LogInfo("Upgrading node %s (%s)", req.Node.IP, req.Node.Role)
 	output.LogInfo("  Current version: %s", currentVersion)
-	output.LogInfo("  Target image: %s", image)
+	if extDiffer {
+		output.LogInfo("  Extensions differ: %s", extDiff)
+	}
+	if kaDiffer {
+		output.LogInfo("  Kernel args differ: %s", kaDiff)
+	}
+	output.LogInfo("  Target image: %s", req.Image)
 
 	if dryRun {
 		output.LogWarn("DRY RUN: Would run: talosctl upgrade -n %s --image %s --preserve=%v",
-			node.IP, image, preserve)
+			req.Node.IP, req.Image, preserve)
 		return false, nil
 	}
 
 	// Run upgrade
-	if err := client.Upgrade(ctx, node.IP, image, preserve); err != nil {
+	if err := client.Upgrade(ctx, req.Node.IP, req.Image, preserve); err != nil {
 		return false, fmt.Errorf("upgrade command failed: %w", err)
 	}
 
@@ -284,7 +528,7 @@ func upgradeNode(ctx context.Context, client talos.TalosClientInterface, node co
 	timeout := time.Duration(cfg.Settings.DefaultTimeoutSeconds) * time.Second
 
 	var lastPhase, lastTask string
-	err = client.WatchUpgrade(ctx, node.IP, timeout, func(p talos.UpgradeProgress) {
+	err = client.WatchUpgrade(ctx, req.Node.IP, timeout, func(p talos.UpgradeProgress) {
 		// Show stage changes
 		if p.Stage != "" {
 			output.LogInfo("  [%s]", p.Stage)
@@ -306,22 +550,22 @@ func upgradeNode(ctx context.Context, client talos.TalosClientInterface, node co
 
 	// Wait for critical services to be healthy
 	var services []string
-	if node.Role == config.RoleControlPlane {
+	if req.Node.Role == config.RoleControlPlane {
 		services = talos.GetControlPlaneServices()
 	} else {
 		services = talos.GetWorkerServices()
 	}
 	output.LogInfo("Waiting for Talos services: %v", services)
-	if err := client.WaitForServices(ctx, node.IP, services, 60*time.Second); err != nil {
+	if err := client.WaitForServices(ctx, req.Node.IP, services, 60*time.Second); err != nil {
 		output.LogWarn("Services health check timed out: %v", err)
 	} else {
 		output.LogSuccess("Talos services healthy")
 	}
 
 	// For control plane nodes, also wait for K8s static pods
-	if node.Role == config.RoleControlPlane {
+	if req.Node.Role == config.RoleControlPlane {
 		output.LogInfo("Waiting for K8s control plane pods: apiserver, controller-manager, scheduler")
-		if err := client.WaitForStaticPods(ctx, node.IP, 90*time.Second); err != nil {
+		if err := client.WaitForStaticPods(ctx, req.Node.IP, 90*time.Second); err != nil {
 			output.LogWarn("Static pods health check timed out: %v", err)
 		} else {
 			output.LogSuccess("K8s control plane pods healthy")
@@ -329,12 +573,12 @@ func upgradeNode(ctx context.Context, client talos.TalosClientInterface, node co
 	}
 
 	// Verify new version
-	newVersion, err := client.GetVersion(ctx, node.IP)
+	newVersion, err := client.GetVersion(ctx, req.Node.IP)
 	if err != nil {
 		newVersion = "unknown"
 	}
 
-	output.LogSuccess("Node %s upgraded: %s -> %s", node.IP, currentVersion, newVersion)
+	output.LogSuccess("Node %s upgraded: %s -> %s", req.Node.IP, currentVersion, newVersion)
 	return false, nil
 }
 

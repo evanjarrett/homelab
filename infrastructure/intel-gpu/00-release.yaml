@@ -29,6 +29,7 @@ spec:
   values:
     sharedDevNum: 2
     nodeFeatureRule: true
+    denyIDs: "9bc5"  # Exclude UHD 630 iGPU, only expose discrete GPUs
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease

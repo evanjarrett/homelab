@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/evanjarrett/homelab/internal/config"
 	"github.com/evanjarrett/homelab/internal/output"
 	"github.com/evanjarrett/homelab/internal/talos"
 	"github.com/spf13/cobra"
@@ -41,6 +42,12 @@ func runStatusWithClient(ctx context.Context, client talos.TalosClientInterface)
 	output.Header("Talos Cluster Status")
 	fmt.Println()
 
+	// Get nodes - either from discovery or legacy config
+	nodes, err := getStatusNodes(ctx, client)
+	if err != nil {
+		return err
+	}
+
 	// Collect statuses in parallel
 	var (
 		statuses []talos.NodeStatus
@@ -48,26 +55,17 @@ func runStatusWithClient(ctx context.Context, client talos.TalosClientInterface)
 		wg       sync.WaitGroup
 	)
 
-	for _, node := range cfg.Nodes {
+	for _, node := range nodes {
 		wg.Add(1)
-		go func(node struct {
-			IP      string
-			Profile string
-			Role    string
-		}) {
+		go func(node statusNode) {
 			defer wg.Done()
 
-			profile := cfg.Profiles[node.Profile]
-			status := client.GetNodeStatus(ctx, node.IP, node.Profile, node.Role, profile.Secureboot)
+			status := client.GetNodeStatus(ctx, node.IP, node.Profile, node.Role, node.Secureboot)
 
 			mu.Lock()
 			statuses = append(statuses, status)
 			mu.Unlock()
-		}(struct {
-			IP      string
-			Profile string
-			Role    string
-		}{node.IP, node.Profile, node.Role})
+		}(node)
 	}
 
 	wg.Wait()
@@ -108,4 +106,86 @@ func runStatusWithClient(ctx context.Context, client talos.TalosClientInterface)
 
 	tw.Flush()
 	return nil
+}
+
+// statusNode represents a node for status display
+type statusNode struct {
+	IP         string
+	Profile    string
+	Role       string
+	Secureboot bool
+}
+
+// getStatusNodes returns nodes to check, using discovery if detection is configured
+func getStatusNodes(ctx context.Context, client talos.TalosClientInterface) ([]statusNode, error) {
+	// If detection is configured, use discovery
+	if cfg.HasDetection() {
+		return discoverNodes(ctx, client)
+	}
+
+	// Fall back to legacy config nodes
+	var nodes []statusNode
+	for _, node := range cfg.Nodes {
+		profile := cfg.Profiles[node.Profile]
+		nodes = append(nodes, statusNode{
+			IP:         node.IP,
+			Profile:    node.Profile,
+			Role:       node.Role,
+			Secureboot: profile.Secureboot,
+		})
+	}
+	return nodes, nil
+}
+
+// discoverNodes uses Talos API to discover nodes and detect their profiles
+func discoverNodes(ctx context.Context, client talos.TalosClientInterface) ([]statusNode, error) {
+	// Get cluster members
+	members, err := client.GetClusterMembers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover cluster members: %w", err)
+	}
+
+	var nodes []statusNode
+	for _, member := range members {
+		// Get hardware info for profile detection
+		hwInfo, err := client.GetHardwareInfo(ctx, member.IP)
+		if err != nil {
+			// If we can't get hardware info, use unknown profile
+			nodes = append(nodes, statusNode{
+				IP:         member.IP,
+				Profile:    "unknown",
+				Role:       member.Role,
+				Secureboot: false,
+			})
+			continue
+		}
+
+		// Convert to config.HardwareInfo for detection
+		cfgHwInfo := &config.HardwareInfo{
+			SystemManufacturer:    hwInfo.SystemManufacturer,
+			SystemProductName:     hwInfo.SystemProductName,
+			ProcessorManufacturer: hwInfo.ProcessorManufacturer,
+			ProcessorProductName:  hwInfo.ProcessorProductName,
+		}
+
+		// Detect profile
+		profileName, profile := cfg.DetectProfile(cfgHwInfo)
+		if profile == nil {
+			profileName = "unknown"
+		}
+
+		secureboot := false
+		if profile != nil {
+			secureboot = profile.Secureboot
+		}
+
+		nodes = append(nodes, statusNode{
+			IP:         member.IP,
+			Profile:    profileName,
+			Role:       member.Role,
+			Secureboot: secureboot,
+		})
+	}
+
+	return nodes, nil
 }

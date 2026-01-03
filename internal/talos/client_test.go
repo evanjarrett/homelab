@@ -529,7 +529,8 @@ func TestParseEvent_MachineStatusEvent(t *testing.T) {
 		progress := c.parseEvent(event)
 		require.NotNil(t, progress)
 		assert.Equal(t, "running", progress.Stage)
-		assert.True(t, progress.Done)
+		// Note: parseEvent no longer sets Done - caller decides based on context
+		assert.False(t, progress.Done)
 	})
 
 	t.Run("booting state", func(t *testing.T) {
