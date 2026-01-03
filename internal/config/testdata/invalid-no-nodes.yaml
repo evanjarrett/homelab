@@ -1,8 +1,0 @@
-profiles:
-  basic:
-    arch: amd64
-    platform: metal
-    secureboot: false
-    extensions: []
-
-nodes: []
