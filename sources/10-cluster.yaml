@@ -57,7 +57,7 @@ spec:
   interval: 10m
   url: https://github.com/alex1989hu/kubelet-serving-cert-approver.git
   ref:
-    tag: v0.10.2
+    tag: v0.10.3
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
