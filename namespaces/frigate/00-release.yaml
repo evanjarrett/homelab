@@ -22,7 +22,7 @@ spec:
     disableHooks: true
   values:
     image:
-      tag: 0.16.3 # renovate: image=ghcr.io/blakeblackshear/frigate
+      tag: 0.16.4 # renovate: image=ghcr.io/blakeblackshear/frigate
     envFromSecrets:
       - frigate
     env:
