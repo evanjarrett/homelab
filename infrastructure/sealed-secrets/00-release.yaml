@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: sealed-secrets-helmrepo
         namespace: flux-system
-      version: 2.18.0
+      version: 2.18.1
   interval: 2h
   install:
     crds: Create
