@@ -60,7 +60,7 @@ spec:
       # Init container to patch OAuth provider with clockTolerance
       initContainers:
         - name: patch-oauth
-          image: ghcr.io/bluesky-social/pds:0.4.193
+          image: ghcr.io/bluesky-social/pds:0.4.208
           command: ["/bin/sh", "/scripts/patch-oauth.sh"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -88,7 +88,7 @@ spec:
             capabilities:
               drop:
               - ALL
-          image: ghcr.io/bluesky-social/pds:0.4.193
+          image: ghcr.io/bluesky-social/pds:0.4.208
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
