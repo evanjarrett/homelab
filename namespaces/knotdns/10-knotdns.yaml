@@ -69,7 +69,7 @@ spec:
               mountPath: /config
       containers:
         - name: knotdns
-          image: docker.io/cznic/knot:v3.5.2
+          image: docker.io/cznic/knot:v3.5.3
           resources:
             requests:
               memory: 48Mi
