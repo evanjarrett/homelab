@@ -69,6 +69,8 @@ spec:
     remediation:
       retries: 3
   values:
+    deploymentStrategy:
+      type: Recreate
     persistence:
       type: pvc
       enabled: true

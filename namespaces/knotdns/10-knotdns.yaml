@@ -47,6 +47,8 @@ metadata:
   name: knotdns
   namespace: knotdns
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:

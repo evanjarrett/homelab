@@ -21,6 +21,8 @@ spec:
   uninstall:
     disableHooks: true
   values:
+    strategy:
+      type: Recreate
     image:
       tag: 0.16.4 # renovate: image=ghcr.io/blakeblackshear/frigate
     envFromSecrets:

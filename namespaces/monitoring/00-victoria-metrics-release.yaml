@@ -66,6 +66,8 @@ spec:
   values:
     server:
       mode: deployment
+      strategy:
+        type: Recreate
       persistentVolume:
         enabled: true
         existingClaim: victoria-metrics-data
