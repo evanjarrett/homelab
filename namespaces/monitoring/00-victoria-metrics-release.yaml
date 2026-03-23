@@ -99,12 +99,16 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    replicaCount: 2
+    statefulSet:
+      enabled: true
+      clusterMode: true
     resources:
       requests:
         cpu: 50m
-        memory: 128Mi
-      limits:
         memory: 256Mi
+      limits:
+        memory: 512Mi
     remoteWrite:
       - url: http://victoria-metrics-server.monitoring.svc.cluster.local:8428/api/v1/write
     config:
