@@ -3,3 +3,18 @@ kind: Kustomization
 resources:
 - gotk-components.yaml
 - gotk-sync.yaml
+patches:
+- target:
+    kind: Deployment
+    name: image-automation-controller
+  patch: |
+    - op: add
+      path: /spec/replicas
+      value: 0
+- target:
+    kind: Deployment
+    name: image-reflector-controller
+  patch: |
+    - op: add
+      path: /spec/replicas
+      value: 0
