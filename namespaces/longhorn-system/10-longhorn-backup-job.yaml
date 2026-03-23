@@ -1,34 +1,32 @@
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
-  name: system-backup
+  name: nightly-backup
   namespace: longhorn-system
 spec:
   cron: "0 2 * * *"  # Daily at 2 AM
-  task: system-backup
-  retain: 3
+  task: backup
+  retain: 14
   concurrency: 3
   groups:
     - default
-  parameters:
-    volume-backup-policy: if-not-present
   labels:
     app: longhorn-backup
 ---
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
-  name: backup-delete
+  name: system-backup
   namespace: longhorn-system
 spec:
-  cron: "0 3 * * *"  # Daily at 3 AM (after backups)
-  task: backup-delete
-  retain: 14
+  cron: "30 2 * * *"  # Daily at 2:30 AM
+  task: system-backup
+  retain: 3
   concurrency: 3
   groups:
     - default
   labels:
-    app: longhorn-cleanup
+    app: longhorn-backup
 ---
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
@@ -36,7 +34,7 @@ metadata:
   name: snapshot-delete
   namespace: longhorn-system
 spec:
-  cron: "30 3 * * *"  # Daily at 3:30 AM (after backup delete)
+  cron: "0 3 * * *"  # Daily at 3 AM (after backups)
   task: snapshot-delete
   retain: 10
   concurrency: 3
