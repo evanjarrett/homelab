@@ -6,7 +6,7 @@ metadata:
 spec:
   cron: "0 2 * * *"  # Daily at 2 AM
   task: backup
-  retain: 14
+  retain: 10
   concurrency: 3
   groups:
     - default
