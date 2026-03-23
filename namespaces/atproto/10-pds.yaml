@@ -13,6 +13,7 @@ data:
   PDS_REPORT_SERVICE_URL: "https://mod.bsky.app"
   PDS_REPORT_SERVICE_DID: "did:plc:ar7c4by46qjdydhdevvrndac"
   PDS_CRAWLERS: "https://bsky.network"
+  PDS_BLOB_UPLOAD_LIMIT: "104857600"
   LOG_ENABLED: "true"
   PDS_OAUTH_PROVIDER_NAME: "Jarrett PDS"
   PDS_OAUTH_PROVIDER_LOGO: ""
