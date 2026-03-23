@@ -1,13 +1,13 @@
 apiVersion: source.toolkit.fluxcd.io/v1
-kind: GitRepository
+kind: OCIRepository
 metadata:
   name: gateway-api-repo
   namespace: flux-system
 spec:
   interval: 10m
-  url: https://github.com/kubernetes-sigs/gateway-api.git
+  url: oci://ghcr.io/kubernetes-sigs/gateway-api/gateway-api-standard-install
   ref:
-    tag: v1.5.1
+    semver: "1.5.x"
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -16,10 +16,10 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m
-  path: ./config/crd/standard
+  path: ./
   prune: true
   sourceRef:
-    kind: GitRepository
+    kind: OCIRepository
     name: gateway-api-repo
   timeout: 5m0s
 ---
