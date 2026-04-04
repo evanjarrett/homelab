@@ -25,6 +25,6 @@ spec:
     - loom.jarrett.net
   rules:
     - backendRefs:
-        - name: loom-loom-spindle-service
+        - name: loom-spindle-service
           namespace: loom-system
           port: 6555
