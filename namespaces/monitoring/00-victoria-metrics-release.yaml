@@ -103,6 +103,10 @@ spec:
     statefulSet:
       enabled: true
       clusterMode: true
+    persistentVolume:
+      enabled: true
+      size: 2Gi
+      storageClassName: longhorn
     resources:
       requests:
         cpu: 50m
