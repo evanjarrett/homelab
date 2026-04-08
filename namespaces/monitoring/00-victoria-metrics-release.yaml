@@ -100,8 +100,8 @@ spec:
     crds: CreateReplace
   values:
     replicaCount: 3
+    mode: statefulSet
     statefulSet:
-      enabled: true
       clusterMode: true
     persistentVolume:
       enabled: true
