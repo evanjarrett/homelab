@@ -144,6 +144,8 @@ spec:
             - "-c"
             - "65536"
             - "--metrics"
+            - "-fa"
+            - "on"
           env:
             - name: HSA_ENABLE_SDMA
               value: "0"
