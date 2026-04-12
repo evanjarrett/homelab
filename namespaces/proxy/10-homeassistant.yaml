@@ -18,6 +18,13 @@ spec:
       backendRefs:
         - name: homeassistant
           port: 8123
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/mcp
+      backendRefs:
+        - name: homeassistant
+          port: 8123
     - backendRefs:
         - name: homeassistant
           port: 8123
