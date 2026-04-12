@@ -89,24 +89,24 @@ spec:
               # Qwen3-VL-8B vision model + mmproj
               if [ ! -f "Qwen3VL-8B-Instruct-Q4_K_M.gguf" ]; then
                 echo "Downloading Qwen3-VL-8B..."
-                curl -L -o Qwen3VL-8B-Instruct-Q4_K_M.gguf \
+                curl -L -# -o Qwen3VL-8B-Instruct-Q4_K_M.gguf \
                   "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf"
               fi
               if [ ! -f "mmproj-Qwen3VL-8B-Instruct-F16.gguf" ]; then
                 echo "Downloading Qwen3-VL-8B mmproj..."
-                curl -L -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
+                curl -L -# -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
                   "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf"
               fi
               # Gemma 4 31B for general use
               if [ ! -f "gemma-4-31B-it-UD-Q8_K_XL.gguf" ]; then
                 echo "Downloading Gemma 4 31B..."
-                curl -L -o gemma-4-31B-it-UD-Q8_K_XL.gguf \
+                curl -L -# -o gemma-4-31B-it-UD-Q8_K_XL.gguf \
                   "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-UD-Q8_K_XL.gguf"
               fi
               # Qwen3-Coder 30B-A3B for coding tasks
               if [ ! -f "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ]; then
                 echo "Downloading Qwen3-Coder 30B-A3B..."
-                curl -L -o Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
+                curl -L -# -o Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
                   "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
               fi
               echo "Models ready."
@@ -116,6 +116,7 @@ spec:
       containers:
         - name: llama-server
           image: docker.io/kyuz0/amd-strix-halo-toolboxes:vulkan-radv
+          imagePullPolicy: Always
           command: ["llama-server"]
           args:
             - "--models-dir"
@@ -136,7 +137,6 @@ spec:
             - "-c"
             - "65536"
             - "--metrics"
-            - "--cache-prompt"
           env: []
           lifecycle:
             postStart:
