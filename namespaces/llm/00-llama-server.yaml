@@ -135,7 +135,7 @@ spec:
             - "--models-max"
             - "3"
             - "-c"
-            - "65536"
+            - "32768"
             - "--metrics"
           env: []
           lifecycle:
