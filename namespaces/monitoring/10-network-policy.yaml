@@ -68,4 +68,6 @@ spec:
       port: 8081  # Common metrics port
     - protocol: TCP
       port: 8428  # VictoriaMetrics
+    - protocol: TCP
+      port: 5000  # AMD GPU metrics exporter
   # No external access needed - monitoring is internal only

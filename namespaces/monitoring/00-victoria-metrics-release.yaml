@@ -104,6 +104,11 @@ spec:
     mode: statefulSet
     statefulSet:
       clusterMode: true
+    rbac:
+      extraRules:
+        - apiGroups: [""]
+          resources: ["nodes/proxy"]
+          verbs: ["get", "list", "watch"]
     persistentVolume:
       enabled: true
       size: 2Gi
