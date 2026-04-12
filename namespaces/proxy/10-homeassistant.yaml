@@ -9,6 +9,7 @@ spec:
       namespace: gateway
   hostnames:
     - homeassistant.jarrett.net
+    - homeassistant.j5t.io
   rules:
     - matches:
         - path:
