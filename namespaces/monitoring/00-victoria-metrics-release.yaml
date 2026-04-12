@@ -310,8 +310,14 @@ spec:
             - source_labels: [__meta_kubernetes_service_name]
               target_label: kubernetes_name
         - job_name: "amd-gpu-exporter"
-          static_configs:
-            - targets: ["default-metrics-exporter.kube-system.svc:5000"]
+          kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names: ["kube-system"]
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name]
+              regex: default-metrics-exporter
+              action: keep
         - job_name: "kubernetes-pods"
           kubernetes_sd_configs:
             - role: pod

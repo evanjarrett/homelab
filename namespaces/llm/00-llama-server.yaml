@@ -40,6 +40,7 @@ data:
 
     [gemma-4-31b]
     model = /models/gemma-4-31B-it-UD-Q8_K_XL.gguf
+    mmproj = /models/mmproj-gemma-4-31B-it-F16.gguf
 
     [qwen3-coder-30b]
     model = /models/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
@@ -97,6 +98,12 @@ spec:
                 curl -L -# -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
                   "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf"
               fi
+              # Gemma 4 31B vision mmproj
+              if [ ! -f "mmproj-gemma-4-31B-it-F16.gguf" ]; then
+                echo "Downloading Gemma 4 31B mmproj..."
+                curl -L -# -o mmproj-gemma-4-31B-it-F16.gguf \
+                  "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf"
+              fi
               # Gemma 4 31B for general use
               if [ ! -f "gemma-4-31B-it-UD-Q8_K_XL.gguf" ]; then
                 echo "Downloading Gemma 4 31B..."
@@ -133,9 +140,9 @@ spec:
             - "-t"
             - "16"
             - "--models-max"
-            - "3"
+            - "2"
             - "-c"
-            - "32768"
+            - "65536"
             - "--metrics"
           env: []
           lifecycle:
@@ -152,7 +159,6 @@ spec:
                     done
                     curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-vl-8b"}'
                     curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"gemma-4-31b"}'
-                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-coder-30b"}'
           ports:
             - containerPort: 8080
               name: http
