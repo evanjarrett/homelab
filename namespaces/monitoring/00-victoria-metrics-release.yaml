@@ -64,6 +64,7 @@ spec:
   upgrade:
     crds: CreateReplace
   values:
+    fullnameOverride: victoria-metrics-server
     server:
       mode: deployment
       strategy:
