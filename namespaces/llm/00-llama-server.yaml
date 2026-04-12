@@ -39,7 +39,7 @@ data:
     mmproj = /models/mmproj-Qwen3VL-8B-Instruct-F16.gguf
 
     [gemma-4-31b]
-    model = /models/gemma-4-31B-it-UD-Q8_K_XL.gguf
+    model = /models/gemma-4-31B-it-Q4_K_M.gguf
     mmproj = /models/mmproj-gemma-4-31B-it-F16.gguf
 
     [qwen3-coder-30b]
@@ -105,10 +105,10 @@ spec:
                   "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf"
               fi
               # Gemma 4 31B for general use
-              if [ ! -f "gemma-4-31B-it-UD-Q8_K_XL.gguf" ]; then
+              if [ ! -f "gemma-4-31B-it-Q4_K_M.gguf" ]; then
                 echo "Downloading Gemma 4 31B..."
-                curl -L -# -o gemma-4-31B-it-UD-Q8_K_XL.gguf \
-                  "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-UD-Q8_K_XL.gguf"
+                curl -L -# -o gemma-4-31B-it-Q4_K_M.gguf \
+                  "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q4_K_M.gguf"
               fi
               # Qwen3-Coder 30B-A3B for coding tasks
               if [ ! -f "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ]; then
@@ -122,7 +122,7 @@ spec:
               mountPath: /models
       containers:
         - name: llama-server
-          image: docker.io/kyuz0/amd-strix-halo-toolboxes:rocm-7.2.1
+          image: docker.io/kyuz0/amd-strix-halo-toolboxes:vulkan-radv
           imagePullPolicy: Always
           command: ["llama-server"]
           args:
@@ -142,17 +142,11 @@ spec:
             - "--models-max"
             - "2"
             - "-c"
-            - "65536"
+            - "131072"
             - "--metrics"
             - "-fa"
             - "on"
-          env:
-            - name: HSA_ENABLE_SDMA
-              value: "0"
-            - name: GPU_MAX_ALLOC_PERCENT
-              value: "100"
-            - name: GPU_MAX_HEAP_SIZE
-              value: "100"
+          env: []
           lifecycle:
             postStart:
               exec:
