@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: homeassistant-mcp-cors
+  namespace: gateway
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: jarrett-net
+  configPatches:
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            name: "homeassistant.j5t.io:443"
+            route:
+              name: "proxy.homeassistant-tls-route.1"
+      patch:
+        operation: MERGE
+        value:
+          typed_per_filter_config:
+            envoy.filters.http.cors:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy
+              allow_origin_string_match:
+                - safe_regex:
+                    regex: "^https://[a-zA-Z0-9.-]+\\.j5t\\.io$"
+              allow_methods: "GET, POST, OPTIONS, DELETE"
+              allow_headers: "authorization, content-type, mcp-protocol-version, mcp-session-id"
+              expose_headers: "mcp-session-id"
+              max_age: "3600"
+              allow_credentials: true
