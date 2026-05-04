@@ -125,6 +125,25 @@ spec:
               mountPath: /fluent-bit/etc
             - name: logs
               mountPath: /logs
+        # fluent-bit image is distroless; sidecar gives a shell + tools (jq, tail, grep)
+        # for kubectl exec -c shell -- to read /logs/talos.log directly.
+        - name: shell
+          image: docker.io/library/busybox:1.37
+          command: ["sleep", "infinity"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: logs
+              mountPath: /logs
+              readOnly: true
       volumes:
         - name: config
           configMap:
@@ -138,8 +157,10 @@ kind: Service
 metadata:
   name: talos-log-receiver
   namespace: monitoring
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.3
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: talos-log-receiver
   ports:
