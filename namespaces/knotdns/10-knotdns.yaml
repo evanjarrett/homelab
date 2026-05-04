@@ -58,10 +58,21 @@ spec:
       labels:
         app: knotdns
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 53
+        runAsGroup: 53
+        fsGroup: 53
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: init-storage
           image: busybox
           command: ["sh", "-c", "cp -p /data/knot.conf /config; cp -p /data/*.zone /storage"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           volumeMounts:
             - name: storage
               mountPath: /storage
@@ -72,6 +83,10 @@ spec:
       containers:
         - name: knotdns
           image: docker.io/cznic/knot:v3.5.4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               memory: 48Mi

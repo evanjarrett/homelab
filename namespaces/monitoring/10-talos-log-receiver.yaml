@@ -1,0 +1,149 @@
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: talos-logs-data
+  namespace: longhorn-system
+  labels:
+    app: talos-log-receiver
+spec:
+  size: "5368709120"
+  numberOfReplicas: 2
+  frontend: blockdev
+  accessMode: rwo
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: talos-logs-data
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: talos-logs-data
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: talos-logs-data
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  volumeName: talos-logs-data
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: talos-log-receiver-config
+  namespace: monitoring
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         1
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name          tcp
+        Listen        0.0.0.0
+        Port          5170
+        Format        json
+        Tag           talos
+
+    [OUTPUT]
+        Name          file
+        Match         talos
+        Path          /logs
+        File          talos.log
+        Mkdir         true
+
+  parsers.conf: |
+    # Talos ships JSON-lines natively; the tcp input parses it directly.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: talos-log-receiver
+  namespace: monitoring
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: talos-log-receiver
+  template:
+    metadata:
+      labels:
+        app: talos-log-receiver
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:3.2.4
+          args:
+            - "-c"
+            - "/fluent-bit/etc/fluent-bit.conf"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: tcp-json
+              containerPort: 5170
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: 5170
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc
+            - name: logs
+              mountPath: /logs
+      volumes:
+        - name: config
+          configMap:
+            name: talos-log-receiver-config
+        - name: logs
+          persistentVolumeClaim:
+            claimName: talos-logs-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: talos-log-receiver
+  namespace: monitoring
+spec:
+  type: ClusterIP
+  selector:
+    app: talos-log-receiver
+  ports:
+    - name: tcp-json
+      protocol: TCP
+      port: 5170
+      targetPort: 5170

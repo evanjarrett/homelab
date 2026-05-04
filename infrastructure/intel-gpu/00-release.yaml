@@ -27,7 +27,6 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    sharedDevNum: 2
     nodeFeatureRule: true
     denyIDs: "0x9bc5"  # Exclude UHD 630 iGPU, only expose discrete GPUs
 ---
