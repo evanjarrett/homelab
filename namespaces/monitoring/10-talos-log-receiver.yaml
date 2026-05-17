@@ -161,6 +161,7 @@ metadata:
     metallb.universe.tf/loadBalancerIPs: 192.168.3.3
 spec:
   type: LoadBalancer
+  externalTrafficPolicy: Local
   selector:
     app: talos-log-receiver
   ports:
