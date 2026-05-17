@@ -97,7 +97,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: fluent-bit
-          image: cr.fluentbit.io/fluent/fluent-bit:3.2.4
+          image: cr.fluentbit.io/fluent/fluent-bit:5.0.5
           args:
             - "-c"
             - "/fluent-bit/etc/fluent-bit.conf"
