@@ -44,12 +44,12 @@ spec:
         memory: 8Gi
         cpu: 4000m
         gpu.intel.com/i915: 1
-        squat.ai/apex: 2
+        devic.es/apex: 2
       limits:
         memory: 16Gi
         cpu: 4000m
         gpu.intel.com/i915: 1
-        squat.ai/apex: 2
+        devic.es/apex: 2
     securityContext:
       privileged: true
       capabilities:
