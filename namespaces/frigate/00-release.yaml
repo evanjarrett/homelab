@@ -51,7 +51,6 @@ spec:
         gpu.intel.com/i915: 1
         devic.es/apex: 2
     securityContext:
-      privileged: true
       capabilities:
         add: ["PERFMON"]
     nodeSelector:
@@ -194,13 +193,7 @@ spec:
           days: 0
           mode: all
       ffmpeg:
-        hwaccel_args:
-          - -hwaccel
-          - qsv
-          - -qsv_device
-          - /dev/dri/by-path/pci-0000:03:00.0-render
-          - -hwaccel_output_format
-          - qsv
+        hwaccel_args: preset-intel-qsv-h264
         output_args:
           record: preset-record-generic-audio-copy
       cameras:
