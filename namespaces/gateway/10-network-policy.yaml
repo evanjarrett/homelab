@@ -62,10 +62,6 @@ spec:
   - to:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: tnyclick
-  - to:
-    - namespaceSelector:
-        matchLabels:
           kubernetes.io/metadata.name: website
   - to:
     - namespaceSelector:

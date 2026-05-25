@@ -18,3 +18,13 @@ spec:
     createNamespace: true
     remediation:
       retries: 3
+  values:
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL

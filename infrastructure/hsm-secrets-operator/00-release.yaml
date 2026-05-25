@@ -62,9 +62,6 @@ spec:
         - name: endpoints
           namespace: proxy
           syncInterval: 300
-        - name: tnyclick
-          namespace: tnyclick
-          syncInterval: 300
         - name: bluesky
           namespace: atproto
           syncInterval: 300
