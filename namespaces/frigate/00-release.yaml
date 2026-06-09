@@ -29,16 +29,14 @@ spec:
       - frigate
     env:
       OPENAI_BASE_URL: "http://llama-server.llm.svc.cluster.local:8080/v1"
+    # Corals are provided solely by the generic-device-plugin via the
+    # `devic.es/apex: 2` resource request below, which also grants the cgroup
+    # device permission. The previous hostPath/extraVolume mounts of
+    # /dev/apex_0 and /dev/apex_1 are removed to avoid shadowing the
+    # device-plugin-injected nodes (cause of node-dependent "present but
+    # unusable" Coral failures).
     coral:
-      enabled: true
-      hostPath: /dev/apex_0
-    extraVolumes:
-      - name: coral-dev-two
-        hostPath:
-          path: /dev/apex_1
-    extraVolumeMounts:
-      - mountPath: /dev/apex_1
-        name: coral-dev-two
+      enabled: false
     resources:
       requests:
         memory: 8Gi
