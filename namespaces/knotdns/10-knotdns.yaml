@@ -82,7 +82,7 @@ spec:
               mountPath: /config
       containers:
         - name: knotdns
-          image: docker.io/cznic/knot:v3.5.4
+          image: docker.io/cznic/knot:v3.5.5
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
