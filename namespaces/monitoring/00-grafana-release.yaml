@@ -103,15 +103,35 @@ spec:
 
     dashboards:
       default:
+        # VictoriaMetrics single-node (we run victoria-metrics-single, NOT the
+        # cluster build — 11176 was the cluster dashboard and stayed empty).
         victoriametrics:
-          gnetId: 11176
-          revision: 18
+          gnetId: 10229
+          revision: 54
           datasource: victoriametrics
         vmagent:
           gnetId: 12683
           revision: 7
           datasource: victoriametrics
-        kubernetes:
-          gnetId: 14205
-          revision: 1
+        node-exporter-full:
+          gnetId: 1860
+          revision: 45
+          datasource: victoriametrics
+        # dotdc "Kubernetes / Views" set — replaces 14205, which assumed systemd
+        # cgroups (Talos has none) and the kubernetes_io_hostname label we removed.
+        kubernetes-global:
+          gnetId: 15757
+          revision: 43
+          datasource: victoriametrics
+        kubernetes-namespaces:
+          gnetId: 15758
+          revision: 46
+          datasource: victoriametrics
+        kubernetes-nodes:
+          gnetId: 15759
+          revision: 40
+          datasource: victoriametrics
+        kubernetes-pods:
+          gnetId: 15760
+          revision: 39
           datasource: victoriametrics

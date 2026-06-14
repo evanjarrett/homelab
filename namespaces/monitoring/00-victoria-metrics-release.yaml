@@ -129,6 +129,11 @@ spec:
     config:
       global:
         scrape_interval: 30s
+        # Added so dashboards that key off a cluster label (e.g. the dotdc
+        # "Kubernetes / Views" set) populate their $cluster variable. Applied
+        # to every scraped series before remote write.
+        external_labels:
+          cluster: homelab
       scrape_configs:
         - job_name: vmagent
           static_configs:
