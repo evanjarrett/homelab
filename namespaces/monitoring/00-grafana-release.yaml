@@ -53,6 +53,11 @@ spec:
         feedback_links_enabled: false
       news:
         news_feed_enabled: false
+      # The "What's new in Grafana" popup is the splash-screen modal, gated by
+      # this feature toggle. Its "already seen" flag is a per-user DB pref, so the
+      # ephemeral DB makes it reappear on every restart — disable it outright.
+      feature_toggles:
+        splashScreen: false
     datasources:
       datasources.yaml:
         apiVersion: 1
@@ -155,13 +160,9 @@ spec:
           gnetId: 7639
           revision: 311
           datasource: victoriametrics
-        istio-service:
-          gnetId: 7636
-          revision: 310
-          datasource: victoriametrics
-        istio-workload:
-          gnetId: 7630
-          revision: 311
-          datasource: victoriametrics
+        # NOTE: istio-service (7636) and istio-workload (7630) are NOT here —
+        # they're baked into grafana-baked-dashboards (02-grafana-baked-dashboards.yaml)
+        # so the "Reporter" (qrep) variable can default to BOTH source+destination
+        # (gnetId ships destination-only, which is empty on our mesh).
         # AMD GPU dashboards (vLLM workload) are also baked — see the 'baked'
         # provider / grafana-baked-dashboards ConfigMap.

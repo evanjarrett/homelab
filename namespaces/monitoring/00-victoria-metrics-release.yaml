@@ -333,6 +333,17 @@ spec:
             - source_labels: [__meta_kubernetes_service_name]
               regex: default-metrics-exporter
               action: keep
+          # The official AMD GPU dashboard keys its whole variable chain on
+          # cluster_name + gpu_uuid, but this exporter (default config) emits
+          # neither. Synthesize them so the dashboard's selectors resolve:
+          # cluster_name -> "homelab"; gpu_uuid -> "<hostname>-<gpu_id>" (unique
+          # per physical GPU). hostname/gpu_id are already emitted by the exporter.
+          metric_relabel_configs:
+            - target_label: cluster_name
+              replacement: homelab
+            - source_labels: [hostname, gpu_id]
+              separator: "-"
+              target_label: gpu_uuid
         - job_name: "kubernetes-pods"
           kubernetes_sd_configs:
             - role: pod
