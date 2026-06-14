@@ -104,3 +104,51 @@ spec:
           gnetId: 15760
           revision: 39
           datasource: victoriametrics
+        coredns:
+          gnetId: 15762
+          revision: 22
+          datasource: victoriametrics
+        # Longhorn storage — volume health, replica/rebuild status, capacity.
+        longhorn:
+          gnetId: 16888
+          revision: 12
+          datasource: victoriametrics
+        cert-manager:
+          gnetId: 11001
+          revision: 1
+          datasource: victoriametrics
+        # Flux GitOps control plane. Official dashboards live in the fluxcd repo
+        # (no clean gnetId), pulled by URL; datasource pinned so panels resolve.
+        flux-cluster:
+          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/cluster.json
+          datasource: victoriametrics
+        flux-control-plane:
+          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/control-plane.json
+          datasource: victoriametrics
+        # Istio. Control-plane metrics already flow (pilot_*); mesh/service/
+        # workload need the istio-proxy scrape job and only render workloads that
+        # have an injected sidecar.
+        istio-control-plane:
+          gnetId: 7645
+          revision: 310
+          datasource: victoriametrics
+        istio-mesh:
+          gnetId: 7639
+          revision: 311
+          datasource: victoriametrics
+        istio-service:
+          gnetId: 7636
+          revision: 310
+          datasource: victoriametrics
+        istio-workload:
+          gnetId: 7630
+          revision: 311
+          datasource: victoriametrics
+        # AMD GPU (vLLM workload). Official dashboards for the device-metrics-
+        # exporter we already scrape; no datasource template var, so pin it.
+        amd-gpu-overview:
+          url: https://raw.githubusercontent.com/ROCm/device-metrics-exporter/main/grafana/dashboard_overview.json
+          datasource: victoriametrics
+        amd-gpu:
+          url: https://raw.githubusercontent.com/ROCm/device-metrics-exporter/main/grafana/dashboard_gpu.json
+          datasource: victoriametrics
