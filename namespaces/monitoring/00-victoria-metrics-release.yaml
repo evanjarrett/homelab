@@ -67,6 +67,11 @@ spec:
     fullnameOverride: victoria-metrics
     server:
       mode: deployment
+      # Safety net: NFD/Talos node labels + pod labels can push series past the
+      # default 40-label cap, which makes VM silently drop the whole sample
+      # (reason="too_many_labels"). Combined with the labelmap trims below.
+      extraArgs:
+        maxLabelsPerTimeseries: "60"
       strategy:
         type: Recreate
       persistentVolume:
@@ -154,8 +159,10 @@ spec:
           kubernetes_sd_configs:
             - role: node
           relabel_configs:
-            - action: labelmap
-              regex: __meta_kubernetes_node_label_(.+)
+            # NOTE: do NOT labelmap __meta_kubernetes_node_label_(.+) here — it
+            # copies every NFD/Talos node label (~24) onto each series, blowing
+            # past VM's per-series label cap. `instance` is set to the node name
+            # by service discovery, so node identity is preserved without it.
             - target_label: __address__
               replacement: kubernetes.default.svc:443
             - source_labels: [__meta_kubernetes_node_name]
@@ -171,8 +178,11 @@ spec:
           kubernetes_sd_configs:
             - role: node
           relabel_configs:
-            - action: labelmap
-              regex: __meta_kubernetes_node_label_(.+)
+            # See note on the kubernetes-nodes job: the node labelmap is omitted
+            # on purpose. cAdvisor series already carry pod/container/namespace
+            # labels, so adding ~24 node labels on top reliably exceeds the cap
+            # and was silently dropping every container series on label-heavy
+            # nodes (control-plane, GPU nodes).
             - target_label: __address__
               replacement: kubernetes.default.svc:443
             - source_labels: [__meta_kubernetes_node_name]
@@ -348,3 +358,29 @@ spec:
             - source_labels: [__meta_kubernetes_pod_name]
               action: replace
               target_label: kubernetes_pod_name
+        - job_name: "node-exporter"
+          kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names: ["monitoring"]
+          relabel_configs:
+            - source_labels:
+                [__meta_kubernetes_service_label_app_kubernetes_io_name]
+              regex: prometheus-node-exporter
+              action: keep
+            # Pin instance/node to the node name so cluster aggregates and
+            # per-node dashboards group cleanly.
+            - source_labels: [__meta_kubernetes_pod_node_name]
+              target_label: node
+            - source_labels: [__meta_kubernetes_pod_node_name]
+              target_label: instance
+        - job_name: "kube-state-metrics"
+          kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names: ["monitoring"]
+          relabel_configs:
+            - source_labels:
+                [__meta_kubernetes_service_label_app_kubernetes_io_name]
+              regex: kube-state-metrics
+              action: keep
