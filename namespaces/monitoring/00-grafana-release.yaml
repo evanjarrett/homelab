@@ -41,6 +41,18 @@ spec:
     # manage, no orphaned dashboards.
     persistence:
       enabled: false
+    # Since the DB is ephemeral, Grafana treats every restart as a fresh user and
+    # re-shows the "What's new" / news prompts (that dismissal is a per-user DB
+    # pref that gets wiped). Disable the whole news/analytics subsystem so the
+    # prompts never appear regardless of DB state.
+    grafana.ini:
+      analytics:
+        check_for_updates: false
+        check_for_plugin_updates: false
+        reporting_enabled: false
+        feedback_links_enabled: false
+      news:
+        news_feed_enabled: false
     datasources:
       datasources.yaml:
         apiVersion: 1
