@@ -69,6 +69,22 @@ spec:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/default
+        # Dedicated provider for the ConfigMap-mounted AMD GPU dashboards. It must
+        # be a separate path from 'default' (which the init container populates) —
+        # mounting the ConfigMap over /default would shadow the downloaded files.
+        - name: 'amd'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/amd
+
+    # Mounts grafana-amd-gpu-dashboards into /var/lib/grafana/dashboards/amd,
+    # read by the 'amd' provider above.
+    dashboardsConfigMaps:
+      amd: grafana-amd-gpu-dashboards
 
     dashboards:
       default:
@@ -144,11 +160,7 @@ spec:
           gnetId: 7630
           revision: 311
           datasource: victoriametrics
-        # AMD GPU (vLLM workload). Official dashboards for the device-metrics-
-        # exporter we already scrape; no datasource template var, so pin it.
-        amd-gpu-overview:
-          url: https://raw.githubusercontent.com/ROCm/device-metrics-exporter/main/grafana/dashboard_overview.json
-          datasource: victoriametrics
-        amd-gpu:
-          url: https://raw.githubusercontent.com/ROCm/device-metrics-exporter/main/grafana/dashboard_gpu.json
-          datasource: victoriametrics
+        # NOTE: AMD GPU dashboards (vLLM workload) are NOT loaded here. They use a
+        # pretty-printed nested datasource that the chart's URL loader can't
+        # rewrite, so they're baked into the grafana-amd-gpu-dashboards ConfigMap
+        # (02-amd-gpu-dashboards.yaml) and mounted via the 'amd' provider below.
