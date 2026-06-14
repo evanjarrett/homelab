@@ -1,0 +1,74 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loom-helmrelease
+  namespace: loom-system
+spec:
+  releaseName: loom
+  chart:
+    spec:
+      chart: ./helm/loom
+      sourceRef:
+        kind: GitRepository
+        name: loom-repo
+        namespace: flux-system
+  interval: 5m
+  install:
+    createNamespace: true
+    crds: Create
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    strategy:
+      type: Recreate
+    image:
+      tag: latest # renovate: image=atcr.io/evan.jarrett.net/loom
+      repository: atcr.io/evan.jarrett.net/loom
+      pullPolicy: Always
+    imagePullSecrets:
+      - name: atcr-login
+    spindle:
+      server:
+        hostname: loom.jarrett.net
+        owner: did:plc:pddp4xt5lgnv2qsegbzzs4xg
+    persistence:
+      db:
+        size: 1Gi
+      logs:
+        size: 5Gi
+    config:
+      maxConcurrentJobs: 5
+      template:
+        resourceProfiles:
+          - nodeSelector:
+              kubernetes.io/arch: arm64
+              node-tier: large
+            resources:
+              requests:
+                cpu: "2"
+                memory: "4Gi"
+              limits:
+                cpu: "6"
+                memory: "12Gi"
+          - nodeSelector:
+              kubernetes.io/arch: arm64
+            resources:
+              requests:
+                cpu: "1"
+                memory: "2Gi"
+              limits:
+                cpu: "3"
+                memory: "6Gi"
+          - nodeSelector:
+              kubernetes.io/arch: amd64
+            resources:
+              requests:
+                cpu: "4"
+                memory: "4Gi"
+              limits:
+                cpu: "8"
+                memory: "8Gi"
