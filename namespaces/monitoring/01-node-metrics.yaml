@@ -30,6 +30,13 @@ spec:
     # Land on every node, including control-plane nodes (which run workloads here).
     tolerations:
       - operator: Exists
+    # Enable the (default-off) drm collector: exposes node_drm_gpu_busy_percent +
+    # VRAM for amdgpu cards by reading /sys/class/drm. This is the only source of
+    # GPU utilization for the Strix Halo APU — the AMD device-metrics-exporter
+    # reports 0 for power/temp/activity on it (amdsmi can't read the APU sensors),
+    # while node-exporter's hwmon collector already surfaces its power/temp/clock.
+    extraArgs:
+      - --collector.drm
     resources:
       requests:
         cpu: 20m
