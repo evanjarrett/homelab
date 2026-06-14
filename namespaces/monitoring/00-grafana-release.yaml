@@ -53,9 +53,9 @@ spec:
       chart: grafana
       sourceRef:
         kind: HelmRepository
-        name: grafana-helmrepo
+        name: grafana-community-helmrepo
         namespace: flux-system
-      version: 10.5.15
+      version: 12.4.5
   interval: 2h
   timeout: 10m
   install:

@@ -64,10 +64,13 @@ spec:
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: grafana-helmrepo
+  name: grafana-community-helmrepo
   namespace: flux-system
 spec:
-  url: https://grafana.github.io/helm-charts
+  # Grafana Labs froze their official grafana chart at 10.5.15 (app 12.3.1).
+  # The maintained continuation lives here and re-versioned to track the app
+  # (chart 12.4.x -> Grafana 13.x).
+  url: https://grafana-community.github.io/helm-charts
   interval: 2h
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
