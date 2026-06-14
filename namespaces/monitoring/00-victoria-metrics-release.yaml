@@ -471,3 +471,12 @@ spec:
             - source_labels: [__meta_kubernetes_pod_name]
               action: replace
               target_label: pod
+          # Keep only the istio_* mesh metrics the dashboards use. /stats/prometheus
+          # also emits raw envoy_* stats (high cardinality, and they carry their own
+          # cluster_name like "xds-grpc" which otherwise pollutes dashboard cluster
+          # variables). istiod control-plane metrics (pilot_*) come from a different
+          # target, so dropping non-istio_* here loses nothing the dashboards need.
+          metric_relabel_configs:
+            - source_labels: [__name__]
+              regex: "istio_.*"
+              action: keep

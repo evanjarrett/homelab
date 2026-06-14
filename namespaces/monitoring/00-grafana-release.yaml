@@ -58,6 +58,9 @@ spec:
         apiVersion: 1
         datasources:
           - name: victoriametrics
+            # Fixed uid (defaults to a random one). Baked dashboards reference the
+            # datasource by this uid, so it must stay stable across rebuilds.
+            uid: victoriametrics
             type: prometheus
             orgId: 1
             url: http://victoria-metrics-server.monitoring.svc.cluster.local:8428/
@@ -81,22 +84,23 @@ spec:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/default
-        # Dedicated provider for the ConfigMap-mounted AMD GPU dashboards. It must
-        # be a separate path from 'default' (which the init container populates) —
-        # mounting the ConfigMap over /default would shadow the downloaded files.
-        - name: 'amd'
+        # Dedicated provider for the ConfigMap-mounted "baked" dashboards (those
+        # the chart's URL loader can't process — see 02-grafana-baked-dashboards).
+        # Must be a separate path from 'default' (which the init container
+        # populates) — mounting the ConfigMap over /default would shadow it.
+        - name: 'baked'
           orgId: 1
           folder: ''
           type: file
           disableDeletion: false
           editable: true
           options:
-            path: /var/lib/grafana/dashboards/amd
+            path: /var/lib/grafana/dashboards/baked
 
-    # Mounts grafana-amd-gpu-dashboards into /var/lib/grafana/dashboards/amd,
-    # read by the 'amd' provider above.
+    # Mounts grafana-baked-dashboards into /var/lib/grafana/dashboards/baked,
+    # read by the 'baked' provider above.
     dashboardsConfigMaps:
-      amd: grafana-amd-gpu-dashboards
+      baked: grafana-baked-dashboards
 
     dashboards:
       default:
@@ -136,23 +140,10 @@ spec:
           gnetId: 15762
           revision: 22
           datasource: victoriametrics
-        # Longhorn storage — volume health, replica/rebuild status, capacity.
-        longhorn:
-          gnetId: 16888
-          revision: 12
-          datasource: victoriametrics
-        cert-manager:
-          gnetId: 11001
-          revision: 1
-          datasource: victoriametrics
-        # Flux GitOps control plane. Official dashboards live in the fluxcd repo
-        # (no clean gnetId), pulled by URL; datasource pinned so panels resolve.
-        flux-cluster:
-          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/cluster.json
-          datasource: victoriametrics
-        flux-control-plane:
-          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/control-plane.json
-          datasource: victoriametrics
+        # NOTE: longhorn, cert-manager and the two flux dashboards are NOT here —
+        # the chart's URL loader mangles their datasources, so they're baked into
+        # the grafana-baked-dashboards ConfigMap (02-grafana-baked-dashboards.yaml)
+        # and served via the 'baked' provider.
         # Istio. Control-plane metrics already flow (pilot_*); mesh/service/
         # workload need the istio-proxy scrape job and only render workloads that
         # have an injected sidecar.
@@ -172,7 +163,5 @@ spec:
           gnetId: 7630
           revision: 311
           datasource: victoriametrics
-        # NOTE: AMD GPU dashboards (vLLM workload) are NOT loaded here. They use a
-        # pretty-printed nested datasource that the chart's URL loader can't
-        # rewrite, so they're baked into the grafana-amd-gpu-dashboards ConfigMap
-        # (02-amd-gpu-dashboards.yaml) and mounted via the 'amd' provider below.
+        # AMD GPU dashboards (vLLM workload) are also baked — see the 'baked'
+        # provider / grafana-baked-dashboards ConfigMap.
