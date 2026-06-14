@@ -161,7 +161,11 @@ metadata:
     metallb.universe.tf/loadBalancerIPs: 192.168.3.3
 spec:
   type: LoadBalancer
-  externalTrafficPolicy: Local
+  # Cluster (not Local): Talos ships logs from the host network to the MetalLB
+  # VIP. With eTP:Local only the pod's node announces/serves the VIP, which left
+  # several nodes unable to reach it (stuck SYN_SENT). Cluster lets any node
+  # serve and forward via kube-proxy. Source IP isn't used by the receiver.
+  externalTrafficPolicy: Cluster
   selector:
     app: talos-log-receiver
   ports:
