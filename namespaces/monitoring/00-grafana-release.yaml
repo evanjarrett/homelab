@@ -69,6 +69,13 @@ spec:
     remediation:
       retries: 3
   values:
+    # Admin credentials from the HSM-backed secret (operator delivers it into
+    # this namespace). Keys are username/password, so override the chart's
+    # default admin-user/admin-password key names.
+    admin:
+      existingSecret: grafana-login
+      userKey: username
+      passwordKey: password
     deploymentStrategy:
       type: Recreate
     persistence:

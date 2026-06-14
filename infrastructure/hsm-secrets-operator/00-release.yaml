@@ -73,3 +73,6 @@ spec:
           secretType: "kubernetes.io/dockerconfigjson"
           namespace: llm
           syncInterval: 300
+        - name: grafana-login
+          namespace: monitoring
+          syncInterval: 300
