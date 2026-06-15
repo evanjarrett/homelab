@@ -35,6 +35,8 @@ spec:
       labels:
         app: git-summarizer
     spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
