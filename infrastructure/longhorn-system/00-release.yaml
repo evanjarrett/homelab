@@ -28,6 +28,11 @@ spec:
       recurringJobMaxRetention: 10
       autoCleanupSnapshotWhenDeleteBackup: true
       snapshotMaxCount: 30
+      # v2 (SPDK) data engine — enabled cluster-wide, but only schedules on amd64 CP nodes
+      # that have hugepages (vm.nr_hugepages=1024) + uio_pci_generic loaded. arm64 nodes carry
+      # node.longhorn.io/disable-v2-data-engine=true so v2 never lands there.
+      v2DataEngine: true
+      v2DataEngineHugepageLimit: 2048   # MiB; matches the 2GiB hugepages on the amd64 nodes
       # Scope Longhorn's system-managed components (instance-manager,
       # engine-image, CSI) to storage nodes only, so the SD-only CM4 nodes
       # (no storage.longhorn label) run no Longhorn — leaving them free for
