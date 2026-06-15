@@ -10,6 +10,7 @@ spec:
   numberOfReplicas: 2
   frontend: blockdev
   accessMode: rwo
+  dataEngine: v2
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -58,9 +59,11 @@ spec:
       labels:
         app: knotdns
     spec:
-      # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
+      # Pin to v2-data-engine-capable nodes (3 amd64 CP + 2 RK1). v2 volumes can only
+      # attach where a v2 instance-manager runs; CM4s are fenced from v2 (and SD-only
+      # CM4s have no Longhorn CSI). storage.longhorn-v2 is set on the 5 v2 nodes.
       nodeSelector:
-        storage.longhorn: "true"
+        storage.longhorn-v2: "true"
       securityContext:
         runAsNonRoot: true
         runAsUser: 53
