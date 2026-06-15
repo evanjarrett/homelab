@@ -28,6 +28,11 @@ spec:
       recurringJobMaxRetention: 10
       autoCleanupSnapshotWhenDeleteBackup: true
       snapshotMaxCount: 30
+      # Scope Longhorn's system-managed components (instance-manager,
+      # engine-image, CSI) to storage nodes only, so the SD-only CM4 nodes
+      # (no storage.longhorn label) run no Longhorn — leaving them free for
+      # other workloads without needing a node taint. Value is "key:value".
+      systemManagedComponentsNodeSelector: "storage.longhorn:true"
     defaultBackupStore:
       backupTarget: "nfs://192.168.1.100:/mnt/Pool-1.18.6/longhorn"
     persistence:
