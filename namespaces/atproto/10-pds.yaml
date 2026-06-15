@@ -51,10 +51,10 @@ spec:
       labels:
         app: atproto-pds
     spec:
-      # Pin to storage nodes — uses a Longhorn volume, and the CM4 nodes don't
-      # run the Longhorn CSI plugin (would fail to attach there).
+      # Pin to v2-data-engine-capable nodes (storage.longhorn-v2 = 3 amd64 CP + 2 RK1).
+      # v2 volumes only attach where a v2 instance-manager runs; CM4s are fenced from v2.
       nodeSelector:
-        storage.longhorn: "true"
+        storage.longhorn-v2: "true"
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -109,10 +109,11 @@ metadata:
     app: atproto-pds
 spec:
   size: "10737418240"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
   dataLocality: disabled
+  dataEngine: v2
 ---
 apiVersion: v1
 kind: PersistentVolume
