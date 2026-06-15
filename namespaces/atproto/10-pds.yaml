@@ -51,6 +51,10 @@ spec:
       labels:
         app: atproto-pds
     spec:
+      # Pin to storage nodes — uses a Longhorn volume, and the CM4 nodes don't
+      # run the Longhorn CSI plugin (would fail to attach there).
+      nodeSelector:
+        storage.longhorn: "true"
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

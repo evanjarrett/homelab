@@ -88,6 +88,9 @@ spec:
       labels:
         app: talos-log-receiver
     spec:
+      # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
+      nodeSelector:
+        storage.longhorn: "true"
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

@@ -38,6 +38,9 @@ spec:
       labels:
         app.kubernetes.io/name: wg-easy
     spec:
+      # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
+      nodeSelector:
+        storage.longhorn: "true"
       containers:
         - name: wg-easy
           # Specify external hostname and port as environment variables

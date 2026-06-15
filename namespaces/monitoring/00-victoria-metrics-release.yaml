@@ -66,6 +66,9 @@ spec:
   values:
     fullnameOverride: victoria-metrics
     server:
+      # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
+      nodeSelector:
+        storage.longhorn: "true"
       mode: deployment
       # Safety net: NFD/Talos node labels + pod labels can push series past the
       # default 40-label cap, which makes VM silently drop the whole sample
@@ -107,6 +110,9 @@ spec:
   values:
     replicaCount: 3
     mode: statefulSet
+    # Pin to storage nodes — uses Longhorn volumes; CM4 nodes have no Longhorn CSI.
+    nodeSelector:
+      storage.longhorn: "true"
     statefulSet:
       clusterMode: true
     rbac:
