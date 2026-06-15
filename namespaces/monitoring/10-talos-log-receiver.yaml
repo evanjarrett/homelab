@@ -7,9 +7,10 @@ metadata:
     app: talos-log-receiver
 spec:
   size: "5368709120"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
+  dataEngine: v2
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -90,7 +91,7 @@ spec:
     spec:
       # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
       nodeSelector:
-        storage.longhorn: "true"
+        storage.longhorn-v2: "true"
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

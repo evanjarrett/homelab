@@ -7,7 +7,7 @@ metadata:
     app: knotdns
 spec:
   size: "1073741824"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
   dataEngine: v2

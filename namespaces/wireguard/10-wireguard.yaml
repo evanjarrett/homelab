@@ -159,7 +159,7 @@ metadata:
   namespace: longhorn-system
 spec:
   size: "268435456"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
   dataLocality: disabled

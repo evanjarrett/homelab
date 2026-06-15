@@ -7,9 +7,10 @@ metadata:
     app: victoria-metrics
 spec:
   size: "8589934592"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
+  dataEngine: v2
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -66,9 +67,10 @@ spec:
   values:
     fullnameOverride: victoria-metrics
     server:
-      # Pin to storage nodes — uses a Longhorn volume; CM4 nodes have no Longhorn CSI.
+      # Pin to v2-data-engine-capable nodes (v2 volumes only attach where a v2
+      # instance-manager runs). storage.longhorn-v2 = the 3 amd64 CP + 2 RK1.
       nodeSelector:
-        storage.longhorn: "true"
+        storage.longhorn-v2: "true"
       mode: deployment
       # Safety net: NFD/Talos node labels + pod labels can push series past the
       # default 40-label cap, which makes VM silently drop the whole sample
@@ -110,9 +112,10 @@ spec:
   values:
     replicaCount: 3
     mode: statefulSet
-    # Pin to storage nodes — uses Longhorn volumes; CM4 nodes have no Longhorn CSI.
+    # Pin to v2-data-engine-capable nodes (v2 volumes only attach where a v2
+    # instance-manager runs). storage.longhorn-v2 = the 3 amd64 CP + 2 RK1.
     nodeSelector:
-      storage.longhorn: "true"
+      storage.longhorn-v2: "true"
     statefulSet:
       clusterMode: true
     rbac:
@@ -123,7 +126,7 @@ spec:
     persistentVolume:
       enabled: true
       size: 2Gi
-      storageClassName: longhorn
+      storageClassName: longhorn-v2
     resources:
       requests:
         cpu: 50m
