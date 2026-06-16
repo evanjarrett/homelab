@@ -34,6 +34,18 @@ spec:
       # Hugepage size is the `data-engine-memory-size` setting (default {"v2":"2048"} MiB =
       # 2GiB), which already matches vm.nr_hugepages=1024 — no override needed here.
       v2DataEngine: true
+      # Interrupt mode: stop the SPDK reactor busy-polling a full CPU core per v2
+      # instance-manager (poll mode pins ~2 cores/IM 24/7 even when idle). MEASURED
+      # 2026-06-16: total v2 IM CPU ~11.7 → ~6.0 cores; amd64 portion 6.0 → 3.0 cores
+      # (~3 cores ≈ ~45W theoretical at ~15W/core; rack meter showed ~635→~614W, noisy).
+      # It does NOT drop to zero — frigate (24/7 recording) + VM/vmagent/talos-logs keep
+      # real I/O flowing, so the hybrid reactor still works ~1.3-1.7 cores per active IM.
+      # arm64 RK1 poll cores are ~free in watts either way. Trade-off: slightly higher
+      # I/O latency under load — fine for these homelab volumes.
+      # NOTE: changing this requires ALL v2 volumes detached; the live Setting CR is
+      # the runtime source of truth (Helm defaultSettings won't override an already-set
+      # Setting CR), this value only re-seeds on a fresh install. Value is a v2 map.
+      dataEngineInterruptModeEnabled: '{"v2":"true"}'
       # Scope Longhorn's system-managed components (instance-manager,
       # engine-image, CSI) to storage nodes only, so the SD-only CM4 nodes
       # (no storage.longhorn label) run no Longhorn — leaving them free for
