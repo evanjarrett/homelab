@@ -1,3 +1,6 @@
+# Migrated v1 -> v2 (SPDK) data engine on 2026-06-16 via backup/restore.
+# v2 volumes only attach on v2-engine nodes; frigate's host (.161/talos-cgy-c3m)
+# already runs a v2 instance-manager, so the existing hostname/Coral pinning is unchanged.
 apiVersion: longhorn.io/v1beta2
 kind: Volume
 metadata:
@@ -7,10 +10,11 @@ metadata:
     app: frigate
 spec:
   size: "10737418240"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
   dataLocality: disabled
+  dataEngine: v2
 ---
 apiVersion: longhorn.io/v1beta2
 kind: Volume
@@ -21,7 +25,58 @@ metadata:
     app: frigate
 spec:
   size: "107374182400"
-  numberOfReplicas: 2
+  numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
   dataLocality: disabled
+  dataEngine: v2
+---
+# Static PVs are declared here (not Longhorn-UI-created) so they DON'T carry an
+# ownerReference back to the Volume CR. A UI-created PV is GC'd when its Volume CR
+# is deleted, which during the v2 migration cascade-deleted these PVs and the
+# chart-managed PVCs. Declaring them here keeps the binding durable + GitOps-managed.
+# The frigate chart creates the PVCs (frigate-config/frigate-media); the claimRef
+# below pre-binds them to these PVs so they never dynamic-provision a fresh volume.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-frigate-config
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  volumeMode: Filesystem
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: frigate
+    name: frigate-config
+  csi:
+    driver: driver.longhorn.io
+    fsType: ext4
+    volumeHandle: pvc-frigate-config
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-frigate-media
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  volumeMode: Filesystem
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    namespace: frigate
+    name: frigate-media
+  csi:
+    driver: driver.longhorn.io
+    fsType: ext4
+    volumeHandle: pvc-frigate-media
