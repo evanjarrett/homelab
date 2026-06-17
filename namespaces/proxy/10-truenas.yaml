@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: truenas-tls-route
+  namespace: proxy
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - truenas.j5t.io
+  rules:
+    - backendRefs:
+        - name: truenas
+          namespace: proxy
+          port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: truenas-backend-tls
+  namespace: proxy
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: truenas
+  validation:
+    hostname: truenas.j5t.io
+    wellKnownCACertificates: System
