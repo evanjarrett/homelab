@@ -58,7 +58,7 @@ spec:
         kind: HelmRepository
         name: prometheus-community-helmrepo
         namespace: flux-system
-      version: 7.4.1
+      version: 7.5.1
   interval: 2h
   install:
     crds: Create
