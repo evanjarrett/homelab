@@ -82,7 +82,7 @@ spec:
       ui:
         timezone: America/Chicago
       model:
-        path: plus://a41b38aaa8f7ef3b4234de6c7ab56ef1
+        path: plus://2f03ed15c73a6b4ccdfecce3623a1519
       detect:
         enabled: true
       detectors:
