@@ -131,9 +131,30 @@ spec:
               mountPath: /logs
         # fluent-bit image is distroless; sidecar gives a shell + tools (jq, tail, grep)
         # for kubectl exec -c shell -- to read /logs/talos.log directly.
+        # It also rotates the log: out_file has NO size cap, so without this the
+        # 5Gi volume fills, ext4 flips read-only, and log shipping silently dies
+        # (happened Jun 2026 — lost the kernel logs for a CM4 crash). The loop keeps
+        # talos.log as a ~1 GiB ring buffer (truncate-in-place preserves the inode so
+        # fluent-bit's O_APPEND writes keep working). Emergency branch self-heals a
+        # near-full volume by hard-truncating when there's no room for a safe rotate.
         - name: shell
           image: docker.io/library/busybox:1.38
-          command: ["sleep", "infinity"]
+          command:
+            - /bin/sh
+            - -c
+            - |
+              LOG=/logs/talos.log
+              while true; do
+                used=$(df -P /logs | awk 'NR==2{print $5+0}')
+                sz=$(wc -c < "$LOG" 2>/dev/null || echo 0)
+                if [ "$used" -ge 90 ]; then
+                  : > "$LOG"                       # near-full: hard reset to free space
+                elif [ "$sz" -gt 3221225472 ]; then # >3 GiB: keep last 1 GiB
+                  tail -c 1073741824 "$LOG" > /logs/.rot && cat /logs/.rot > "$LOG"
+                  rm -f /logs/.rot
+                fi
+                sleep 30
+              done
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -147,7 +168,6 @@ spec:
           volumeMounts:
             - name: logs
               mountPath: /logs
-              readOnly: true
       volumes:
         - name: config
           configMap:
