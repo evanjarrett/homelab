@@ -114,49 +114,12 @@ spec:
         provider: openai
         api_key: "not-needed"
         model: qwen3.6-35b
+      # NOTE: genai description prompts are set PER-CAMERA below (under
+      # cameras.<name>.objects.genai.prompt), NOT here. The 0.16->0.17 config
+      # migration blanks the global objects.genai block whenever the global
+      # genai block is non-empty, so a prompt here would be silently replaced
+      # by Frigate's default. Per-camera objects.genai survives the migration.
       objects:
-        genai:
-          prompt: >
-            You are analyzing images from a residential security camera pointed at
-            a driveway. The camera also captures part of the sidewalk and street.
-            Describe where the {label} is located (driveway, sidewalk, or street)
-            and what activity they appear to be doing. Keep your response to one
-            short sentence suitable for a phone notification. Do not use preambles
-            like "Here's a description" - just state the facts directly.
-          object_prompts:
-            person: >
-              You are analyzing images from a residential security camera pointed
-              at a driveway with views of the sidewalk and street. Describe this
-              person: their location (driveway, sidewalk, or street), what they
-              appear to be doing (walking, standing, approaching the door,
-              delivering something, etc.), and a brief description of their
-              appearance (clothing, build). Keep your response to one short
-              sentence suitable for a phone notification. No preambles.
-            car: >
-              You are analyzing images from a residential security camera pointed
-              at a driveway with views of the sidewalk and street. Describe this
-              vehicle: type (sedan, SUV, truck, van), color, its location
-              (parked in driveway, on the street, pulling in/out), and whether
-              it appears to be a delivery vehicle. Keep your response to one
-              short sentence suitable for a phone notification. No preambles.
-            package: >
-              You are analyzing images from a residential security camera pointed
-              at a driveway. A package has been detected. Describe where it was
-              placed (front door, porch, driveway, etc.) and its approximate size
-              (small, medium, large). Keep your response to one short sentence
-              suitable for a phone notification. No preambles.
-            dog: >
-              You are analyzing images from a residential security camera pointed
-              at a driveway with views of the sidewalk and street. Describe this
-              dog: its location (driveway, sidewalk, street), what it's doing
-              (walking, running, sitting, sniffing around), and whether it
-              appears to be a stray or with an owner. Keep your response to one
-              short sentence suitable for a phone notification. No preambles.
-            cat: >
-              You are analyzing images from a residential security camera pointed
-              at a driveway. Describe this cat: its location and what it's doing
-              (walking, sitting, hunting, etc.). Keep your response to one short
-              sentence suitable for a phone notification. No preambles.
         track:
           - person
           - face
@@ -233,6 +196,12 @@ spec:
                   0.019,0.328,0.076,0.621,0.093,0.607,0.122,0.707,0.002,0.779,0.001,0.34
             genai:
               enabled: true
+              prompt: >
+                You are a residential security camera assistant. In ONE short
+                sentence suitable for a phone notification, describe the {label}:
+                where it is (driveway, sidewalk, or street) and what it is doing.
+                Describe only what is visible. No preambles, no refusals, and do
+                not ask for more images.
               objects:
                 - person
                 - car
@@ -284,6 +253,12 @@ spec:
                   - 0.428,0.52,0.461,0.568,0.463,0.583,0.411,0.599,0.381,0.535
             genai:
               enabled: true
+              prompt: >
+                You are a residential security camera assistant. In ONE short
+                sentence suitable for a phone notification, describe the {label}:
+                where it is (driveway, sidewalk, street, or front of the house)
+                and what it is doing. Describe only what is visible. No preambles,
+                no refusals, and do not ask for more images.
               objects:
                 - person
                 - car
