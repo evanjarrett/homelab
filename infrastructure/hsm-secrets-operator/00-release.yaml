@@ -76,3 +76,6 @@ spec:
         - name: grafana-login
           namespace: monitoring
           syncInterval: 300
+        - name: larapaper
+          namespace: trmnl
+          syncInterval: 300

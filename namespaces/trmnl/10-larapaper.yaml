@@ -1,0 +1,181 @@
+# LaraPaper — self-hosted TRMNL BYOS server (usetrmnl/larapaper).
+# Single all-in-one container (nginx + php-fpm + s6 queue/scheduler), SQLite,
+# Chromium/Browsershot renderer. No external DB/Redis: queue/cache/session all
+# live in SQLite. Serves the BYOS API (/api/setup, /api/display, /api/log) plus
+# the web admin UI. The TRMNL X (Clarity, 1872x1404 / 16-gray) is shipped as a
+# built-in device-model preset, so no custom model is required.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: larapaper-database
+  namespace: trmnl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: larapaper-images
+  namespace: trmnl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: larapaper
+  namespace: trmnl
+spec:
+  replicas: 1
+  # RWO SQLite volume + single SQLite writer -> never run two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: larapaper
+  template:
+    metadata:
+      labels:
+        app: larapaper
+    spec:
+      # v2 (SPDK) volumes only attach where a v2 instance-manager runs.
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 82          # www-data in the serversideup/php base image
+        runAsGroup: 82
+        fsGroup: 82            # chown the Longhorn volumes to www-data
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # Empty PVC overlays the image's database/storage dir, so the SQLite
+        # file doesn't exist on first boot. Pre-create it (owned by 82:82 via
+        # the pod securityContext) so AUTORUN's `php artisan migrate` succeeds.
+        - name: init-sqlite
+          image: ghcr.io/usetrmnl/larapaper:latest
+          command: ["sh", "-c", "touch /db/database.sqlite"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: database
+              mountPath: /db
+      containers:
+        - name: larapaper
+          image: ghcr.io/usetrmnl/larapaper:latest
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: APP_NAME
+              value: "TrmnlServer"
+            - name: APP_ENV
+              value: "production"
+            - name: APP_DEBUG
+              value: "false"
+            # Must be the externally-reachable URL: the device fetches the
+            # rendered image from an absolute image_url built off APP_URL.
+            - name: APP_URL
+              value: "https://trmnl.j5t.io"
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: larapaper
+                  key: APP_KEY
+            - name: DB_CONNECTION
+              value: "sqlite"
+            - name: DB_DATABASE
+              value: "/var/www/html/database/storage/database.sqlite"
+            # TLS terminates at the istio gateway; trust the forwarded scheme so
+            # admin redirects/cookies use https, and mark the session cookie secure.
+            - name: SESSION_SECURE_COOKIE
+              value: "true"
+            - name: TRUSTED_PROXIES
+              value: "*"
+            # Developer-Edition hybrid proxy: serve native TRMNL Core content
+            # alongside your own plugins. Refresh cadence in minutes.
+            - name: TRMNL_PROXY_BASE_URL
+              value: "https://trmnl.app"
+            - name: TRMNL_PROXY_REFRESH_MINUTES
+              value: "15"
+            # Leave open so you can create the first admin account via the web UI;
+            # flip to "0" after that account exists.
+            - name: REGISTRATION_ENABLED
+              value: "1"
+            - name: PHP_OPCACHE_ENABLE
+              value: "1"
+            - name: AUTORUN_ENABLED
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30   # ~150s for first-boot migrate + optimize
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi          # Chromium render spikes
+          volumeMounts:
+            - name: database
+              mountPath: /var/www/html/database/storage
+            - name: images
+              mountPath: /var/www/html/storage/app/public/images/generated
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: database
+          persistentVolumeClaim:
+            claimName: larapaper-database
+        - name: images
+          persistentVolumeClaim:
+            claimName: larapaper-images
+        # Chromium/Browsershot crashes on the default 64Mi /dev/shm.
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: larapaper
+  namespace: trmnl
+spec:
+  selector:
+    app: larapaper
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

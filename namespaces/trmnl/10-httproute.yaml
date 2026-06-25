@@ -1,0 +1,17 @@
+# Exposed at https://trmnl.j5t.io via the jarrett-net gateway's *.j5t.io
+# listener (TLS terminate). The TRMNL X points its custom BYOS base URL here.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: larapaper-tls-route
+  namespace: trmnl
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - trmnl.j5t.io
+  rules:
+    - backendRefs:
+        - name: larapaper
+          port: 8080
