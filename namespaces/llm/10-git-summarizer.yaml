@@ -5,7 +5,7 @@ metadata:
   namespace: llm
 data:
   LLAMA_URL: "http://llama-server.llm.svc.cluster.local:8080"
-  LLAMA_MODEL: "qwen3-coder-30b"
+  LLAMA_MODEL: "qwen3.6-35b"
 ---
 apiVersion: v1
 kind: Service

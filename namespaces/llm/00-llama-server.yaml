@@ -21,24 +21,6 @@ spec:
       share: /mnt/Pool-1.18.6/kubernetes/llama-models
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: llama-server-config
-  namespace: llm
-data:
-  models.ini: |
-    [qwen3-vl-8b]
-    model = /models/Qwen3VL-8B-Instruct-Q4_K_M.gguf
-    mmproj = /models/mmproj-Qwen3VL-8B-Instruct-F16.gguf
-
-    [gemma-4-31b]
-    model = /models/gemma-4-31B-it-Q4_K_M.gguf
-    mmproj = /models/mmproj-gemma-4-31B-it-F16.gguf
-
-    [qwen3-coder-30b]
-    model = /models/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: llama-models
@@ -80,34 +62,18 @@ spec:
             - |
               apk add --no-cache curl
               cd /models
-              # Qwen3-VL-8B vision model + mmproj
-              if [ ! -f "Qwen3VL-8B-Instruct-Q4_K_M.gguf" ]; then
-                echo "Downloading Qwen3-VL-8B..."
-                curl -L -# -o Qwen3VL-8B-Instruct-Q4_K_M.gguf \
-                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/Qwen3VL-8B-Instruct-Q4_K_M.gguf"
+              BASE="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main"
+              # Primary model: Qwen3.6-35B-A3B — MoE (35B/3B-active), multimodal,
+              # 262K native ctx via hybrid Gated-DeltaNet linear attention.
+              # Replaces qwen3-vl-8b (vision) + qwen3-coder-30b (coding) + gemma-4-31b.
+              if [ ! -f "Qwen3.6-35B-A3B-UD-Q6_K.gguf" ]; then
+                echo "Downloading Qwen3.6-35B-A3B UD-Q6_K..."
+                curl -L -# -o Qwen3.6-35B-A3B-UD-Q6_K.gguf "$BASE/Qwen3.6-35B-A3B-UD-Q6_K.gguf"
               fi
-              if [ ! -f "mmproj-Qwen3VL-8B-Instruct-F16.gguf" ]; then
-                echo "Downloading Qwen3-VL-8B mmproj..."
-                curl -L -# -o mmproj-Qwen3VL-8B-Instruct-F16.gguf \
-                  "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF/resolve/main/mmproj-Qwen3VL-8B-Instruct-F16.gguf"
-              fi
-              # Gemma 4 31B vision mmproj
-              if [ ! -f "mmproj-gemma-4-31B-it-F16.gguf" ]; then
-                echo "Downloading Gemma 4 31B mmproj..."
-                curl -L -# -o mmproj-gemma-4-31B-it-F16.gguf \
-                  "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/mmproj-F16.gguf"
-              fi
-              # Gemma 4 31B for general use
-              if [ ! -f "gemma-4-31B-it-Q4_K_M.gguf" ]; then
-                echo "Downloading Gemma 4 31B..."
-                curl -L -# -o gemma-4-31B-it-Q4_K_M.gguf \
-                  "https://huggingface.co/unsloth/gemma-4-31B-it-GGUF/resolve/main/gemma-4-31B-it-Q4_K_M.gguf"
-              fi
-              # Qwen3-Coder 30B-A3B for coding tasks
-              if [ ! -f "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf" ]; then
-                echo "Downloading Qwen3-Coder 30B-A3B..."
-                curl -L -# -o Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
-                  "https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+              # Vision projector (mmproj) — required for Frigate image analysis.
+              if [ ! -f "mmproj-Qwen3.6-35B-A3B-F16.gguf" ]; then
+                echo "Downloading Qwen3.6 mmproj..."
+                curl -L -# -o mmproj-Qwen3.6-35B-A3B-F16.gguf "$BASE/mmproj-F16.gguf"
               fi
               echo "Models ready."
           volumeMounts:
@@ -119,40 +85,43 @@ spec:
           imagePullPolicy: Always
           command: ["llama-server"]
           args:
-            - "--models-dir"
-            - "/models"
-            - "--models-preset"
-            - "/config/models.ini"
+            - "--model"
+            - "/models/Qwen3.6-35B-A3B-UD-Q6_K.gguf"
+            - "--mmproj"
+            - "/models/mmproj-Qwen3.6-35B-A3B-F16.gguf"
+            - "--alias"
+            - "qwen3.6-35b"             # model id clients reference (Frigate, git-summarizer, Sure, agent)
             - "-ngl"
-            - "999"
+            - "999"                     # offload all layers to GPU
+            - "-fa"
+            - "on"                      # flash attention
+            - "--jinja"                 # parse model template -> OpenAI tool_calls (Sure / HA Assist / agent)
+            - "-c"
+            - "1048576"                 # total KV budget = 4 slots x 262144 native ctx
+            - "-np"
+            - "4"                       # 4 server slots (Frigate bg + agent + interactive + spare)
+            - "--no-kv-unified"         # private per-slot KV: each hard-capped at native 262K
+            - "-t"                      #   -> no >262K extrapolation, no cross-slot context hogging
+            - "16"
             - "--host"
             - "0.0.0.0"
             - "--port"
             - "8080"
-            - "-t"
-            - "16"
-            - "--models-max"
-            - "2"
-            - "-c"
-            - "131072"
             - "--metrics"
-            - "-fa"
-            - "on"
           env: []
-          lifecycle:
-            postStart:
-              exec:
-                command:
-                  - /bin/sh
-                  - -c
-                  - |
-                    sleep 10
-                    for i in 1 2 3 4 5 6 7 8 9 10; do
-                      curl -s http://localhost:8080/health && break
-                      sleep 5
-                    done
-                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"qwen3-vl-8b"}'
-                    curl -X POST http://localhost:8080/models/load -H "Content-Type: application/json" -d '{"model":"gemma-4-31b"}'
+          # Model load from NFS + 1M-token KV alloc takes ~2min; gate traffic until /health is green.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 60        # up to ~10min before giving up
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 3
           ports:
             - containerPort: 8080
               name: http
@@ -170,8 +139,6 @@ spec:
             - name: models
               mountPath: /cache
               subPath: cache
-            - name: config
-              mountPath: /config
             - name: dri
               mountPath: /dev/dri
             - name: kfd
@@ -182,9 +149,6 @@ spec:
         - name: models
           persistentVolumeClaim:
             claimName: llama-models
-        - name: config
-          configMap:
-            name: llama-server-config
         - name: dri
           hostPath:
             path: /dev/dri
@@ -197,7 +161,6 @@ spec:
             sizeLimit: 16Gi
 ---
 apiVersion: v1
-
 kind: Service
 metadata:
   name: llama-server
