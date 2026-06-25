@@ -1,11 +1,14 @@
 # v2 (SPDK) data engine StorageClass for dynamically-provisioned volumes.
-# Mirrors the default `longhorn` SC but dataEngine=v2 and numberOfReplicas=2
-# (there are currently 2 v2 disks — the 2 RK1s; .163 adds a 3rd, bump to 3 later).
-# v2 volumes only attach on v2-enabled nodes — pin consumers to storage.longhorn-v2.
+# This is the CLUSTER DEFAULT StorageClass: no active v1 data-engine nodes remain,
+# so the chart's v1 `longhorn` SC is non-functional (defaultClass:false in the
+# HelmRelease). v2 volumes only attach on v2-enabled nodes — pin consumers to
+# storage.longhorn-v2.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: longhorn-v2
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
 provisioner: driver.longhorn.io
 allowVolumeExpansion: true
 reclaimPolicy: Delete
