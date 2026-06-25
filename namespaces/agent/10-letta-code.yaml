@@ -13,9 +13,10 @@
 # In-cluster clients (e.g. a Discord bot) reach it at
 #   ws://letta-code.agent.svc.cluster.local:4500
 # passing the token (Agent SDK authToken / LETTA_APP_SERVER_TOKEN). The token is
-# the `token` key of the HSM-synced `letta-ws-token` secret. No external/Istio route.
-# From a workstation, port-forward the Service if needed:
-#   kubectl -n agent port-forward svc/letta-code 4500:4500
+# the `token` key of the HSM-synced `letta-ws-token` secret.
+# Off-cluster (LAN) clients use the internal-only Istio route at
+#   wss://agent.j5t.io   (see 20-httproute.yaml; *.j5t.io is split-horizon DNS)
+# also passing the token. No port-forward needed.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

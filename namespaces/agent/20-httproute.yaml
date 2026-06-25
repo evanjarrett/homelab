@@ -1,0 +1,24 @@
+# Expose the Letta app-server (WebSocket) at agent.j5t.io, on the internal-only
+# *.j5t.io split-horizon DNS (wildcard A -> 192.168.3.1, the jarrett-net gateway).
+# TLS is terminated at the gateway by the wildcard *.j5t.io cert; Envoy auto-upgrades
+# the HTTP/1.1 connection to WebSocket and forwards ws:// to the letta-code Service.
+#
+# Clients still need the capability token (the listener requires --ws-auth):
+#   wss://agent.j5t.io  +  Agent-SDK authToken / LETTA_APP_SERVER_TOKEN
+# Same-namespace backend, so no ReferenceGrant is needed; the gateway's *.j5t.io
+# listener is allowedRoutes.from: All, so this cross-namespace parentRef is allowed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agent-tls-route
+  namespace: agent
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - agent.j5t.io
+  rules:
+    - backendRefs:
+        - name: letta-code
+          port: 4500
