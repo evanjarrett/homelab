@@ -110,9 +110,9 @@ spec:
         provider: openai
         api_key: "not-needed"
         # Qwen3.6-35B-A3B (multimodal) replaces qwen3-vl-8b. It's a thinking
-        # model; "/no_think" keeps notifications fast and avoids reasoning
-        # tokens eating the response (server default stays thinking-on for
-        # the coding/agent clients).
+        # model, but llama-server is launched with enable_thinking=false by
+        # default (see namespaces/llm/00-llama-server.yaml), so descriptions
+        # come back fast and non-empty. No per-prompt switch needed.
         model: qwen3.6-35b
         prompt: >
           You are analyzing images from a residential security camera pointed at
@@ -120,7 +120,7 @@ spec:
           Describe where the {label} is located (driveway, sidewalk, or street)
           and what activity they appear to be doing. Keep your response to one
           short sentence suitable for a phone notification. Do not use preambles
-          like "Here's a description" - just state the facts directly. /no_think
+          like "Here's a description" - just state the facts directly.
         object_prompts:
           person: >
             You are analyzing images from a residential security camera pointed
@@ -129,32 +129,32 @@ spec:
             appear to be doing (walking, standing, approaching the door,
             delivering something, etc.), and a brief description of their
             appearance (clothing, build). Keep your response to one short
-            sentence suitable for a phone notification. No preambles. /no_think
+            sentence suitable for a phone notification. No preambles.
           car: >
             You are analyzing images from a residential security camera pointed
             at a driveway with views of the sidewalk and street. Describe this
             vehicle: type (sedan, SUV, truck, van), color, its location
             (parked in driveway, on the street, pulling in/out), and whether
             it appears to be a delivery vehicle. Keep your response to one
-            short sentence suitable for a phone notification. No preambles. /no_think
+            short sentence suitable for a phone notification. No preambles.
           package: >
             You are analyzing images from a residential security camera pointed
             at a driveway. A package has been detected. Describe where it was
             placed (front door, porch, driveway, etc.) and its approximate size
             (small, medium, large). Keep your response to one short sentence
-            suitable for a phone notification. No preambles. /no_think
+            suitable for a phone notification. No preambles.
           dog: >
             You are analyzing images from a residential security camera pointed
             at a driveway with views of the sidewalk and street. Describe this
             dog: its location (driveway, sidewalk, street), what it's doing
             (walking, running, sitting, sniffing around), and whether it
             appears to be a stray or with an owner. Keep your response to one
-            short sentence suitable for a phone notification. No preambles. /no_think
+            short sentence suitable for a phone notification. No preambles.
           cat: >
             You are analyzing images from a residential security camera pointed
             at a driveway. Describe this cat: its location and what it's doing
             (walking, sitting, hunting, etc.). Keep your response to one short
-            sentence suitable for a phone notification. No preambles. /no_think
+            sentence suitable for a phone notification. No preambles.
       objects:
         track:
           - person

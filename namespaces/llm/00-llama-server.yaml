@@ -96,6 +96,8 @@ spec:
             - "-fa"
             - "on"                      # flash attention
             - "--jinja"                 # parse model template -> OpenAI tool_calls (Sure / HA Assist / agent)
+            - "--reasoning"             # default thinking OFF: snappy + non-empty for Frigate/HA/Sure/git-sum.
+            - "off"                     #   agent/coding opt back in per-request with chat_template_kwargs enable_thinking:true
             - "-c"
             - "1048576"                 # total KV budget = 4 slots x 262144 native ctx
             - "-np"
