@@ -154,6 +154,64 @@ spec:
               mountPath: /var/www/html/storage/app/public/images/generated
             - name: dshm
               mountPath: /dev/shm
+        # ----------------------------------------------------------------------
+        # Cache-warmer sidecar. LaraPaper renders webhook plugins lazily inside
+        # the /api/display request (GenerateScreenJob::dispatchSync, ~4s of
+        # headless Chromium). Home Assistant pushes the calendar every 30 min,
+        # but the webhook staleness window is a hard-coded 1 h, so isDataStale()
+        # is *always* true -> EVERY device poll re-renders inline and the device
+        # times out ("request to API failed", "0 bytes received").
+        #
+        # This loop renders only when the data is stale, then backdates
+        # data_payload_updated_at so isDataStale() flips to false. The device
+        # then always hits the warm current_image cache (~40 ms) and never waits
+        # on Chromium. The ~4s render happens here, off the poll path.
+        - name: refresher
+          image: ghcr.io/usetrmnl/larapaper:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              echo "calendar refresher started"
+              while true; do
+                php /var/www/html/artisan tinker /opt/refresher/refresh.php || true
+                sleep 15
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: APP_URL
+              value: "https://trmnl.j5t.io"
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: larapaper
+                  key: APP_KEY
+            - name: DB_CONNECTION
+              value: "sqlite"
+            - name: DB_DATABASE
+              value: "/var/www/html/database/storage/database.sqlite"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi          # its own Chromium render spikes
+          volumeMounts:
+            - name: database
+              mountPath: /var/www/html/database/storage
+            - name: images
+              mountPath: /var/www/html/storage/app/public/images/generated
+            - name: dshm
+              mountPath: /dev/shm
+            - name: refresher-script
+              mountPath: /opt/refresher
       volumes:
         - name: database
           persistentVolumeClaim:
@@ -162,10 +220,49 @@ spec:
           persistentVolumeClaim:
             claimName: larapaper-images
         # Chromium/Browsershot crashes on the default 64Mi /dev/shm.
+        # Shared by both the app and refresher containers' Chromium instances.
         - name: dshm
           emptyDir:
             medium: Memory
-            sizeLimit: 256Mi
+            sizeLimit: 512Mi
+        - name: refresher-script
+          configMap:
+            name: larapaper-refresher
+---
+# Render-and-backdate script run by the refresher sidecar (see Deployment).
+# Device 1 / plugin 3 (Family Calendar) are this single-device install's fixed IDs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: larapaper-refresher
+  namespace: trmnl
+data:
+  refresh.php: |
+    <?php
+    $p = \App\Models\Plugin::find(3);
+    if (! $p) { echo "plugin 3 missing\n"; return; }
+
+    // Only act while the device would otherwise re-render inline.
+    $stale = $p->data_payload_updated_at
+        && $p->data_payload_updated_at->gt(now()->subHour());
+    if (! $stale && $p->current_image) { return; }
+
+    $d = \App\Models\Device::with(['deviceModel', 'user'])->find(1);
+    $uuid = \App\Services\ImageGenerationService::generateImageFromModel(
+        $p->render('full', true, $d),
+        $d->deviceModel, $d->user, $d->deviceModel?->palette, $d, $p
+    );
+
+    $p->current_image = $uuid;
+    $p->current_image_metadata =
+        \App\Services\ImageGenerationService::buildImageMetadataFromDevice($d);
+    // Backdate so isDataStale() == false -> device serves this cache, fast.
+    $p->data_payload_updated_at = now()->subHours(2);
+    $p->save();
+
+    $d->current_screen_image = $uuid;
+    $d->save();
+    echo "refreshed: {$uuid}\n";
 ---
 apiVersion: v1
 kind: Service
