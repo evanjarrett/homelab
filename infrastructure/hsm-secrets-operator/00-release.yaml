@@ -77,6 +77,9 @@ spec:
           secretType: "kubernetes.io/dockerconfigjson"
           namespace: agent
           syncInterval: 300
+        - name: letta-ws-token
+          namespace: agent
+          syncInterval: 300
         - name: grafana-login
           namespace: monitoring
           syncInterval: 300

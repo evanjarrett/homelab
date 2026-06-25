@@ -8,16 +8,14 @@
 # No official letta-code container exists, so we build our own (see the Dockerfile
 # kept alongside this POC) and push it to atcr.io/evan.jarrett.net/letta-code.
 #
-# The app-server listens on LOOPBACK only (no auth needed for a loopback listener),
-# so there is intentionally no Service. Reach it from your workstation with:
-#   kubectl -n agent port-forward deploy/letta-code 4500:4500
-# then drive it with the Agent SDK (backend: "remote", url ws://localhost:4500),
-# or get the CLI experience directly in the pod:
-#   kubectl -n agent exec -it deploy/letta-code -- \
-#     env PATH=/data/.npm-global/bin:$PATH letta --backend local -m llama-cpp/qwen3.6-35b
-#
-# To expose it in-cluster later: switch --listen to ws://0.0.0.0:4500, add
-# --ws-auth capability-token (token via `kubectl hsm`), and add a Service.
+# The app-server listens on 0.0.0.0:4500 with a capability-token (required for a
+# non-loopback listener) and is fronted by a ClusterIP Service (letta-code:4500).
+# In-cluster clients (e.g. a Discord bot) reach it at
+#   ws://letta-code.agent.svc.cluster.local:4500
+# passing the token (Agent SDK authToken / LETTA_APP_SERVER_TOKEN). The token is
+# the `token` key of the HSM-synced `letta-ws-token` secret. No external/Istio route.
+# From a workstation, port-forward the Service if needed:
+#   kubectl -n agent port-forward svc/letta-code 4500:4500
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -83,11 +81,14 @@ spec:
               letta backend local || true
               # (re)register the in-cluster llama.cpp provider (idempotent)
               letta connect llama-cpp --base-url "${LLAMA_BASE_URL}" || true
-              echo "[init] starting app-server on 127.0.0.1:4500"
-              exec letta app-server --backend local --listen ws://127.0.0.1:4500
+              echo "[init] starting app-server on 0.0.0.0:4500 (capability-token auth)"
+              exec letta app-server --backend local \
+                --listen ws://0.0.0.0:4500 \
+                --ws-auth capability-token \
+                --ws-token-file /etc/letta/token
           ports:
             - name: ws
-              containerPort: 4500   # loopback-only; for `kubectl port-forward`
+              containerPort: 4500
           resources:
             requests:
               cpu: 100m
@@ -98,7 +99,29 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: ws-token
+              mountPath: /etc/letta
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: letta-code-data
+        - name: ws-token
+          secret:
+            secretName: letta-ws-token
+            items:
+              - key: token
+                path: token
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: letta-code
+  namespace: agent
+spec:
+  selector:
+    app: letta-code
+  ports:
+    - name: ws
+      port: 4500
+      targetPort: ws
