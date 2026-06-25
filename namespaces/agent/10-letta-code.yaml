@@ -5,10 +5,8 @@
 #     added in namespaces/llm/10-network-policy.yaml).
 #   - State + memory (memfs git repos) live on the longhorn-v2 PVC at /data.
 #
-# No official letta-code container exists, so we run the stock upstream node:22
-# image and `npm i -g @letta-ai/letta-code` once into the PVC (compiles node-pty
-# natively; node:22 ships python3+make+g++). Subsequent restarts reuse the PVC
-# copy, so this is not reinstalled every boot.
+# No official letta-code container exists, so we build our own (see the Dockerfile
+# kept alongside this POC) and push it to atcr.io/evan.jarrett.net/letta-code.
 #
 # The app-server listens on LOOPBACK only (no auth needed for a loopback listener),
 # so there is intentionally no Service. Reach it from your workstation with:
@@ -55,24 +53,24 @@ spec:
       # v2 (SPDK) volumes only attach where a v2 instance-manager runs.
       nodeSelector:
         storage.longhorn-v2: "true"
+      imagePullSecrets:
+        - name: atcr-login       # synced into this ns by the HSM operator
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000          # `node` user in the node:22 image
+        runAsUser: 1000          # `node` user in the image
         runAsGroup: 1000
         fsGroup: 1000            # chown the Longhorn volume to `node`
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: letta-code
-          image: node:22
+          image: atcr.io/evan.jarrett.net/letta-code:0.27.17
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
           env:
-            - name: LETTA_CODE_VERSION
-              value: "0.27.17"
             - name: HOME
               value: /data
             - name: LETTA_LOCAL_BACKEND_DIR
@@ -82,15 +80,6 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
-              export PATH=/data/.npm-global/bin:$PATH
-              export npm_config_prefix=/data/.npm-global
-              mkdir -p /data/.npm-global /data/lc-local-backend
-              if ! command -v letta >/dev/null 2>&1; then
-                echo "[init] installing @letta-ai/letta-code@${LETTA_CODE_VERSION}"
-                npm install -g "@letta-ai/letta-code@${LETTA_CODE_VERSION}"
-              else
-                echo "[init] letta present: $(letta --version)"
-              fi
               letta backend local || true
               # (re)register the in-cluster llama.cpp provider (idempotent)
               letta connect llama-cpp --base-url "${LLAMA_BASE_URL}" || true
