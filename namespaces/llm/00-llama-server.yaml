@@ -103,6 +103,10 @@ spec:
             - "-np"
             - "4"                       # 4 server slots (Frigate bg + agent + interactive + spare)
             - "--no-kv-unified"         # private per-slot KV: each hard-capped at native 262K
+            - "--slot-prompt-similarity"  # send each request to the slot whose cached prompt matches
+            - "0.5"                       #   best -> agent turns reuse their warm slot; Frigate's
+            - "--cache-reuse"             #   (dissimilar) vision prompts land elsewhere, not evicting it.
+            - "256"                       # also reuse KV across small mid-prompt diffs via shifting.
             - "-t"                      #   -> no >262K extrapolation, no cross-slot context hogging
             - "16"
             - "--host"
