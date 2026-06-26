@@ -42,6 +42,6 @@ spec:
     - sure.j5t.io
   rules:
     - backendRefs:
-        - name: truenas
+        - name: sure
           namespace: proxy
           port: 30404
