@@ -63,7 +63,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: letta-code
-          image: atcr.io/evan.jarrett.net/letta-code:0.27.17
+          image: atcr.io/evan.jarrett.net/letta-code:0.27.17-tools.1
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
