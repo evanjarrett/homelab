@@ -97,6 +97,10 @@ spec:
               value: "false"
             - name: TS_STATE_DIR
               value: "/var/lib/tailscale"
+            # Disable the k8s-Secret state backend (which needs RBAC); persist
+            # node identity to TS_STATE_DIR on the PVC instead.
+            - name: TS_KUBE_SECRET
+              value: ""
           resources:
             requests:
               memory: 64Mi
