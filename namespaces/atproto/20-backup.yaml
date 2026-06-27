@@ -14,8 +14,10 @@
 # spec.suspend to false to arm it.
 #
 # PREREQUISITE: a dedicated dataset Pool-1.18.6/backup/pds, NFS-exported on
-# 192.168.1.100 and writable by the cluster with root mapped to root (maproot=root).
-# Still under .../backup, so TrueCloud task #2 sweeps it to Storj unchanged.
+# 192.168.1.100 with mapall=root (the worker runs non-root under restricted PSA, so
+# maproot alone won't let it write). Mounted via csi-driver-nfs (see the PV below),
+# not a raw nfs: volume, which restricted PSA forbids. Still under .../backup, so
+# TrueCloud task #2 sweeps it to Storj unchanged.
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -55,6 +57,44 @@ subjects:
   - kind: ServiceAccount
     name: atproto-backup
     namespace: atproto
+---
+# NFS to the backup/pds dataset, via csi-driver-nfs rather than a raw nfs: volume.
+# Restricted PSA (atproto ns) forbids the nfs volume type but allows csi/PVC, so the
+# worker mounts this PVC. Server-side the export must be mapall=root so the non-root
+# worker (uid 1000) can write.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: atproto-backup-nfs
+spec:
+  capacity:
+    storage: 10Gi          # nominal; NFS ignores capacity
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.1
+  csi:
+    driver: nfs.csi.k8s.io
+    volumeHandle: 192.168.1.100-mnt-Pool-1.18.6-backup-pds
+    volumeAttributes:
+      server: 192.168.1.100
+      share: /mnt/Pool-1.18.6/backup/pds
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: atproto-backup-nfs
+  namespace: atproto
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  volumeName: atproto-backup-nfs
+  resources:
+    requests:
+      storage: 10Gi
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -167,9 +207,8 @@ data:
                       requests:
                         storage: 10Gi
             - name: nfs
-              nfs:
-                server: 192.168.1.100
-                path: /mnt/Pool-1.18.6/backup/pds
+              persistentVolumeClaim:
+                claimName: atproto-backup-nfs
 ---
 apiVersion: batch/v1
 kind: CronJob
