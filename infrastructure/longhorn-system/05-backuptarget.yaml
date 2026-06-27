@@ -1,0 +1,18 @@
+# Longhorn's default backup target, managed declaratively so the URL is a Flux-
+# reconciled git change rather than a live `kubectl patch`. Longhorn auto-creates
+# a `default` BackupTarget on install; Flux adopts it via server-side apply and
+# owns the spec below, while Longhorn keeps owning status + syncRequestedAt.
+#
+# The bulky, non-critical block store lives on the Scratch pool over NFS. This
+# replaces the chart's defaultSettings.defaultBackupStore seed (which only applied
+# on a fresh install and never reconciled the live CR — hence it couldn't be used
+# to move the target).
+apiVersion: longhorn.io/v1beta2
+kind: BackupTarget
+metadata:
+  name: default
+  namespace: longhorn-system
+spec:
+  backupTargetURL: "nfs://192.168.1.100:/mnt/Scratch/longhorn"
+  credentialSecret: ""
+  pollInterval: 5m0s
