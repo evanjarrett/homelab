@@ -1,0 +1,190 @@
+# App-data offsite backup for the atproto PDS.
+#
+# Flow (nightly): snapshot the pds Longhorn v2 volume via CSI VolumeSnapshot ->
+# a worker Job mounts a read-only full-copy clone of that snapshot (generic
+# ephemeral volume) -> tars the whole /pds tree (sqlite DBs + blob store) to
+# TrueNAS NFS at /mnt/Pool-1.18.6/backup/pds. TrueNAS TrueCloud task #2 then
+# sweeps that dataset to Storj. Self-owned backup, independent of the 3rd-party
+# PDS snapshotter.
+#
+# Snapshot = crash-consistent, and sqlite (WAL) is crash-safe, so the tarball
+# restores cleanly without quiescing the PDS.
+#
+# SUSPENDED until the v2 snapshot->clone path is validated once by hand; flip
+# spec.suspend to false to arm it.
+#
+# PREREQUISITE: an NFS export of /mnt/Pool-1.18.6/backup on 192.168.1.100, writable
+# by the cluster with root mapped to root (maproot=root).
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: atproto-backup
+  namespace: atproto
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: atproto-backup
+  namespace: atproto
+rules:
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: atproto-backup
+  namespace: atproto
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: atproto-backup
+subjects:
+  - kind: ServiceAccount
+    name: atproto-backup
+    namespace: atproto
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atproto-backup-scripts
+  namespace: atproto
+data:
+  orchestrate.sh: |
+    #!/bin/sh
+    set -eu
+    NS=atproto
+    # snapshot-name=source-pvc
+    SNAP=pds
+    PVC=pds-storage-claim
+
+    cleanup() {
+      kubectl -n "$NS" delete -f /scripts/worker.yaml --ignore-not-found --wait=true >/dev/null 2>&1 || true
+      kubectl -n "$NS" delete volumesnapshot "snap-$SNAP" --ignore-not-found >/dev/null 2>&1 || true
+    }
+    trap cleanup EXIT
+    cleanup   # clear leftovers from any prior failed run
+
+    # take a fresh snapshot
+    kubectl apply -f - <<EOF
+    apiVersion: snapshot.storage.k8s.io/v1
+    kind: VolumeSnapshot
+    metadata:
+      name: snap-$SNAP
+      namespace: $NS
+    spec:
+      volumeSnapshotClassName: longhorn-snap
+      source:
+        persistentVolumeClaimName: $PVC
+    EOF
+
+    echo "waiting for snap-$SNAP to be ready..."
+    kubectl -n "$NS" wait --for=jsonpath='{.status.readyToUse}'=true "volumesnapshot/snap-$SNAP" --timeout=30m
+
+    # run the copy worker
+    kubectl apply -f /scripts/worker.yaml
+    echo "waiting for worker to finish..."
+    end=$(( $(date +%s) + 14400 ))
+    while :; do
+      comp=$(kubectl -n "$NS" get job/atproto-backup-worker -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo)
+      fail=$(kubectl -n "$NS" get job/atproto-backup-worker -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo)
+      [ "$comp" = "True" ] && break
+      if [ "$fail" = "True" ]; then echo "worker FAILED"; kubectl -n "$NS" logs job/atproto-backup-worker --tail=120; exit 1; fi
+      [ "$(date +%s)" -gt "$end" ] && { echo "worker timed out"; exit 1; }
+      sleep 15
+    done
+    kubectl -n "$NS" logs job/atproto-backup-worker --tail=20 || true
+    echo "atproto backup complete"
+  worker.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: atproto-backup-worker
+      namespace: atproto
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 1800
+      template:
+        spec:
+          restartPolicy: Never
+          # clone is a v2 volume; only attaches on v2-capable nodes
+          nodeSelector:
+            storage.longhorn-v2: "true"
+          containers:
+            - name: copy
+              image: alpine:3.21
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  apk add --no-cache tar >/dev/null
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  mkdir -p /nfs/pds
+                  # whole /pds (sqlite DBs + blob store) -> dated tarball
+                  tar czf "/nfs/pds/pds-$TS.tar.gz" -C /src/pds .
+                  # keep the last 7 tarballs
+                  ls -1t /nfs/pds/pds-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+                  echo "pds: tarball written ($TS)"
+              volumeMounts:
+                - { name: src-pds, mountPath: /src/pds, readOnly: true }
+                - { name: nfs, mountPath: /nfs }
+          volumes:
+            - name: src-pds
+              ephemeral:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: longhorn-v2
+                    accessModes: ["ReadWriteOnce"]
+                    dataSource:
+                      apiGroup: snapshot.storage.k8s.io
+                      kind: VolumeSnapshot
+                      name: snap-pds
+                    resources:
+                      requests:
+                        storage: 10Gi
+            - name: nfs
+              nfs:
+                server: 192.168.1.100
+                path: /mnt/Pool-1.18.6/backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: atproto-backup
+  namespace: atproto
+spec:
+  schedule: "30 23 * * *"   # nightly 23:30, staggered after frigate, before TrueCloud task #2 at 03:00
+  suspend: true             # arm after one manual validation of the snapshot->clone path
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 18000   # 5h ceiling
+      template:
+        spec:
+          serviceAccountName: atproto-backup
+          restartPolicy: Never
+          containers:
+            - name: orchestrate
+              image: alpine/k8s:1.36.1
+              command: ["/bin/sh", "/scripts/orchestrate.sh"]
+              volumeMounts:
+                - { name: scripts, mountPath: /scripts }
+          volumes:
+            - name: scripts
+              configMap:
+                name: atproto-backup-scripts

@@ -1,0 +1,212 @@
+# App-data offsite backup for Frigate.
+#
+# Flow (nightly): snapshot the frigate-config + frigate-media Longhorn v2 volumes
+# via CSI VolumeSnapshot -> a worker Job mounts read-only full-copy clones of those
+# snapshots (generic ephemeral volumes) -> copies the *real files* to TrueNAS NFS
+# at /mnt/Pool-1.18.6/backup/frigate. TrueNAS TrueCloud task #2 then sweeps that
+# dataset to Storj. This avoids ever crawling the Longhorn block store.
+#
+# Snapshot = crash-consistent, and sqlite (WAL) is crash-safe, so the config tarball
+# restores cleanly without quiescing Frigate.
+#
+# SUSPENDED until the v2 snapshot->clone path is validated once by hand; flip
+# spec.suspend to false to arm it.
+#
+# PREREQUISITE: an NFS export of /mnt/Pool-1.18.6/backup on 192.168.1.100, writable
+# by the cluster with root mapped to root (maproot=root), same as the Scratch export.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: frigate-backup
+  namespace: frigate
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: frigate-backup
+  namespace: frigate
+rules:
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: frigate-backup
+  namespace: frigate
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: frigate-backup
+subjects:
+  - kind: ServiceAccount
+    name: frigate-backup
+    namespace: frigate
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frigate-backup-scripts
+  namespace: frigate
+data:
+  orchestrate.sh: |
+    #!/bin/sh
+    set -eu
+    NS=frigate
+    # snapshot-name=source-pvc pairs
+    PAIRS="frigate-config=frigate-config frigate-media=frigate-media"
+
+    cleanup() {
+      kubectl -n "$NS" delete -f /scripts/worker.yaml --ignore-not-found --wait=true >/dev/null 2>&1 || true
+      for kv in $PAIRS; do
+        kubectl -n "$NS" delete volumesnapshot "snap-${kv%%=*}" --ignore-not-found >/dev/null 2>&1 || true
+      done
+    }
+    trap cleanup EXIT
+    cleanup   # clear leftovers from any prior failed run
+
+    # take fresh snapshots
+    for kv in $PAIRS; do
+      snap="snap-${kv%%=*}"; pvc="${kv#*=}"
+      kubectl apply -f - <<EOF
+    apiVersion: snapshot.storage.k8s.io/v1
+    kind: VolumeSnapshot
+    metadata:
+      name: $snap
+      namespace: $NS
+    spec:
+      volumeSnapshotClassName: longhorn-snap
+      source:
+        persistentVolumeClaimName: $pvc
+    EOF
+    done
+
+    for kv in $PAIRS; do
+      snap="snap-${kv%%=*}"
+      echo "waiting for $snap to be ready..."
+      kubectl -n "$NS" wait --for=jsonpath='{.status.readyToUse}'=true "volumesnapshot/$snap" --timeout=30m
+    done
+
+    # run the copy worker
+    kubectl apply -f /scripts/worker.yaml
+    echo "waiting for worker to finish..."
+    end=$(( $(date +%s) + 21600 ))
+    while :; do
+      comp=$(kubectl -n "$NS" get job/frigate-backup-worker -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' 2>/dev/null || echo)
+      fail=$(kubectl -n "$NS" get job/frigate-backup-worker -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}' 2>/dev/null || echo)
+      [ "$comp" = "True" ] && break
+      if [ "$fail" = "True" ]; then echo "worker FAILED"; kubectl -n "$NS" logs job/frigate-backup-worker --tail=120; exit 1; fi
+      [ "$(date +%s)" -gt "$end" ] && { echo "worker timed out"; exit 1; }
+      sleep 15
+    done
+    kubectl -n "$NS" logs job/frigate-backup-worker --tail=20 || true
+    echo "frigate backup complete"
+  worker.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: frigate-backup-worker
+      namespace: frigate
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 1800
+      template:
+        spec:
+          restartPolicy: Never
+          # clones are v2 volumes; only attach on v2-capable nodes
+          nodeSelector:
+            storage.longhorn-v2: "true"
+          containers:
+            - name: copy
+              image: alpine:3.21
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  apk add --no-cache rsync tar >/dev/null
+                  TS=$(date +%Y%m%d-%H%M%S)
+                  mkdir -p /nfs/frigate
+                  # config volume (frigate.db, config.yml, semantic/face/lpr data) -> dated tarball
+                  tar czf "/nfs/frigate/frigate-config-$TS.tar.gz" -C /src/config .
+                  # keep the last 7 config tarballs
+                  ls -1t /nfs/frigate/frigate-config-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+                  # recordings/clips -> incremental mirror (only new segments transfer)
+                  rsync -a --delete /src/media/ /nfs/frigate/media/
+                  echo "frigate: config tarball + media mirror written ($TS)"
+              volumeMounts:
+                - { name: src-config, mountPath: /src/config, readOnly: true }
+                - { name: src-media, mountPath: /src/media, readOnly: true }
+                - { name: nfs, mountPath: /nfs }
+          volumes:
+            - name: src-config
+              ephemeral:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: longhorn-v2
+                    accessModes: ["ReadWriteOnce"]
+                    dataSource:
+                      apiGroup: snapshot.storage.k8s.io
+                      kind: VolumeSnapshot
+                      name: snap-frigate-config
+                    resources:
+                      requests:
+                        storage: 10Gi
+            - name: src-media
+              ephemeral:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: longhorn-v2
+                    accessModes: ["ReadWriteOnce"]
+                    dataSource:
+                      apiGroup: snapshot.storage.k8s.io
+                      kind: VolumeSnapshot
+                      name: snap-frigate-media
+                    resources:
+                      requests:
+                        storage: 100Gi
+            - name: nfs
+              nfs:
+                server: 192.168.1.100
+                path: /mnt/Pool-1.18.6/backup
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: frigate-backup
+  namespace: frigate
+spec:
+  schedule: "0 23 * * *"   # nightly 23:00, well before TrueCloud task #2 at 03:00
+  suspend: true            # arm after one manual validation of the snapshot->clone path
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 25200   # 7h ceiling for the whole orchestration
+      template:
+        spec:
+          serviceAccountName: frigate-backup
+          restartPolicy: Never
+          containers:
+            - name: orchestrate
+              image: alpine/k8s:1.36.1
+              command: ["/bin/sh", "/scripts/orchestrate.sh"]
+              volumeMounts:
+                - { name: scripts, mountPath: /scripts }
+          volumes:
+            - name: scripts
+              configMap:
+                name: frigate-backup-scripts

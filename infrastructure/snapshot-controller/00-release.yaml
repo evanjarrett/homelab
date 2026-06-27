@@ -1,0 +1,40 @@
+# CSI external-snapshotter (snapshot-controller + VolumeSnapshot CRDs).
+# Longhorn ships the per-node csi-snapshotter sidecar (v8.5.0) but NOT the
+# cluster-wide controller/CRDs by design, so we install them here. Chart 5.1.1
+# bundles external-snapshotter v8.6.0, compatible with Longhorn's v8.5.0 sidecar.
+#
+# Webhook is disabled: it's only the v1beta1<->v1 conversion webhook, and we use
+# the stable snapshot.storage.k8s.io/v1 API exclusively (k8s 1.36) — skipping it
+# avoids a cert/availability dependency in the snapshot create path.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: snapshot-controller-helmrelease
+  namespace: kube-system
+spec:
+  releaseName: snapshot-controller
+  chart:
+    spec:
+      chart: snapshot-controller
+      sourceRef:
+        kind: HelmRepository
+        name: piraeus-helmrepo
+        namespace: flux-system
+      version: 5.1.1
+  interval: 2h
+  install:
+    createNamespace: false
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  values:
+    installCRDs: true
+    webhook:
+      enabled: false
+    controller:
+      replicaCount: 1
