@@ -122,6 +122,15 @@ data:
           # clone is a v2 volume; only attaches on v2-capable nodes
           nodeSelector:
             storage.longhorn-v2: "true"
+          # atproto ns enforces restricted PSA: run non-root as PDS's uid 1000 so
+          # the clone's 1000-owned files are readable. The pds NFS export must be
+          # mapall=root so this non-root uid can still write the tarball.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: copy
               image: alpine:3.21
@@ -129,14 +138,17 @@ data:
               args:
                 - |
                   set -eu
-                  apk add --no-cache tar >/dev/null
                   TS=$(date +%Y%m%d-%H%M%S)
                   # mount IS the per-app backup/pds dataset; write directly into it
-                  # whole /pds (sqlite DBs + blob store) -> dated tarball
+                  # whole /pds (sqlite DBs + blob store) -> dated tarball (busybox tar)
                   tar czf "/nfs/pds-$TS.tar.gz" -C /src/pds .
                   # keep the last 7 tarballs
                   ls -1t /nfs/pds-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
                   echo "pds: tarball written ($TS)"
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
               volumeMounts:
                 - { name: src-pds, mountPath: /src/pds, readOnly: true }
                 - { name: nfs, mountPath: /nfs }
@@ -179,10 +191,23 @@ spec:
         spec:
           serviceAccountName: atproto-backup
           restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: orchestrate
               image: alpine/k8s:1.36.1
               command: ["/bin/sh", "/scripts/orchestrate.sh"]
+              env:
+                - name: HOME          # kubectl cache dir writable as non-root
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
               volumeMounts:
                 - { name: scripts, mountPath: /scripts }
           volumes:
