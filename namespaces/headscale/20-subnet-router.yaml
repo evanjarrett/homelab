@@ -101,6 +101,12 @@ spec:
             # node identity to TS_STATE_DIR on the PVC instead.
             - name: TS_KUBE_SECRET
               value: ""
+            # Talos ships nftables, not the legacy iptables kernel modules, so
+            # tailscale's default legacy-iptables firewall fails to program the
+            # subnet-route SNAT/forward rules. Force nftables (same lesson as
+            # wg-easy).
+            - name: TS_DEBUG_FIREWALL_MODE
+              value: "nftables"
           resources:
             requests:
               memory: 64Mi
@@ -118,6 +124,9 @@ spec:
               name: state
             - mountPath: /dev/net/tun
               name: tun
+            - mountPath: /lib/modules
+              name: host-modules
+              readOnly: true
       volumes:
         - name: state
           persistentVolumeClaim:
@@ -126,3 +135,7 @@ spec:
           hostPath:
             path: /dev/net/tun
             type: CharDevice
+        - name: host-modules
+          hostPath:
+            path: /lib/modules
+            type: Directory
