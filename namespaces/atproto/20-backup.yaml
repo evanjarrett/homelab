@@ -13,8 +13,9 @@
 # SUSPENDED until the v2 snapshot->clone path is validated once by hand; flip
 # spec.suspend to false to arm it.
 #
-# PREREQUISITE: an NFS export of /mnt/Pool-1.18.6/backup on 192.168.1.100, writable
-# by the cluster with root mapped to root (maproot=root).
+# PREREQUISITE: a dedicated dataset Pool-1.18.6/backup/pds, NFS-exported on
+# 192.168.1.100 and writable by the cluster with root mapped to root (maproot=root).
+# Still under .../backup, so TrueCloud task #2 sweeps it to Storj unchanged.
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -130,11 +131,11 @@ data:
                   set -eu
                   apk add --no-cache tar >/dev/null
                   TS=$(date +%Y%m%d-%H%M%S)
-                  mkdir -p /nfs/pds
+                  # mount IS the per-app backup/pds dataset; write directly into it
                   # whole /pds (sqlite DBs + blob store) -> dated tarball
-                  tar czf "/nfs/pds/pds-$TS.tar.gz" -C /src/pds .
+                  tar czf "/nfs/pds-$TS.tar.gz" -C /src/pds .
                   # keep the last 7 tarballs
-                  ls -1t /nfs/pds/pds-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+                  ls -1t /nfs/pds-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
                   echo "pds: tarball written ($TS)"
               volumeMounts:
                 - { name: src-pds, mountPath: /src/pds, readOnly: true }
@@ -156,7 +157,7 @@ data:
             - name: nfs
               nfs:
                 server: 192.168.1.100
-                path: /mnt/Pool-1.18.6/backup
+                path: /mnt/Pool-1.18.6/backup/pds
 ---
 apiVersion: batch/v1
 kind: CronJob

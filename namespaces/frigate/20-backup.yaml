@@ -12,8 +12,10 @@
 # SUSPENDED until the v2 snapshot->clone path is validated once by hand; flip
 # spec.suspend to false to arm it.
 #
-# PREREQUISITE: an NFS export of /mnt/Pool-1.18.6/backup on 192.168.1.100, writable
-# by the cluster with root mapped to root (maproot=root), same as the Scratch export.
+# PREREQUISITE: a dedicated dataset Pool-1.18.6/backup/frigate, NFS-exported on
+# 192.168.1.100 and writable by the cluster with root mapped to root (maproot=root).
+# Kept separate from Time-Machine/desktop backups (and quota-able for recordings).
+# Still under .../backup, so TrueCloud task #2 sweeps it to Storj unchanged.
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -136,13 +138,13 @@ data:
                   set -eu
                   apk add --no-cache rsync tar >/dev/null
                   TS=$(date +%Y%m%d-%H%M%S)
-                  mkdir -p /nfs/frigate
+                  # mount IS the per-app backup/frigate dataset; write directly into it
                   # config volume (frigate.db, config.yml, semantic/face/lpr data) -> dated tarball
-                  tar czf "/nfs/frigate/frigate-config-$TS.tar.gz" -C /src/config .
+                  tar czf "/nfs/frigate-config-$TS.tar.gz" -C /src/config .
                   # keep the last 7 config tarballs
-                  ls -1t /nfs/frigate/frigate-config-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
+                  ls -1t /nfs/frigate-config-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
                   # recordings/clips -> incremental mirror (only new segments transfer)
-                  rsync -a --delete /src/media/ /nfs/frigate/media/
+                  rsync -a --delete /src/media/ /nfs/media/
                   echo "frigate: config tarball + media mirror written ($TS)"
               volumeMounts:
                 - { name: src-config, mountPath: /src/config, readOnly: true }
@@ -178,7 +180,7 @@ data:
             - name: nfs
               nfs:
                 server: 192.168.1.100
-                path: /mnt/Pool-1.18.6/backup
+                path: /mnt/Pool-1.18.6/backup/frigate
 ---
 apiVersion: batch/v1
 kind: CronJob
