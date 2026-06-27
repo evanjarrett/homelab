@@ -178,13 +178,13 @@ data:
               args:
                 - |
                   set -eu
-                  TS=$(date +%Y%m%d-%H%M%S)
-                  # mount IS the per-app backup/pds dataset; write directly into it
-                  # whole /pds (sqlite DBs + blob store) -> dated tarball (busybox tar)
-                  tar czf "/nfs/pds-$TS.tar.gz" -C /src/pds .
-                  # keep the last 7 tarballs
-                  ls -1t /nfs/pds-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
-                  echo "pds: tarball written ($TS)"
+                  # intact file mirror of /pds (sqlite DBs + blob store) into the
+                  # backup/pds dataset: browsable (mount the NFS elsewhere and open
+                  # the sqlite DBs directly) and dedup-friendly on Storj via Kopia.
+                  # busybox cp -a (no rsync/apk needed under restricted PSA) and
+                  # preserves mtimes so Kopia still sees unchanged files as unchanged.
+                  cp -a /src/pds/. /nfs/
+                  echo "pds: mirrored"
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
@@ -197,7 +197,7 @@ data:
               ephemeral:
                 volumeClaimTemplate:
                   spec:
-                    storageClassName: longhorn-v2
+                    storageClassName: longhorn-v2-backup-clone
                     accessModes: ["ReadWriteOnce"]
                     dataSource:
                       apiGroup: snapshot.storage.k8s.io

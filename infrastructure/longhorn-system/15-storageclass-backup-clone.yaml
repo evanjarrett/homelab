@@ -1,0 +1,23 @@
+# StorageClass for the throwaway full-copy clones the backup jobs make from
+# VolumeSnapshots. These live only for the duration of one backup run, so they
+# use a SINGLE replica (no 3x write amplification, no multi-replica "awaiting
+# healthy" wait) and keep that replica local to the worker. Without this, clones
+# inherit longhorn-v2's numberOfReplicas:3 and a 74 GiB media clone copies ~222
+# GiB and stalls. (v2 fast/linked clones land in 1.12.1 — until then it's a real
+# copy, but 1 replica makes it bearable.)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-v2-backup-clone
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "1"
+  dataEngine: "v2"
+  dataLocality: "best-effort"
+  fsType: "ext4"
+  staleReplicaTimeout: "30"
+  disableRevisionCounter: "true"
+  unmapMarkSnapChainRemoved: "ignored"

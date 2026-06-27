@@ -136,16 +136,15 @@ data:
               args:
                 - |
                   set -eu
-                  apk add --no-cache rsync tar >/dev/null
-                  TS=$(date +%Y%m%d-%H%M%S)
-                  # mount IS the per-app backup/frigate dataset; write directly into it
-                  # config volume (frigate.db, config.yml, semantic/face/lpr data) -> dated tarball
-                  tar czf "/nfs/frigate-config-$TS.tar.gz" -C /src/config .
-                  # keep the last 7 config tarballs
-                  ls -1t /nfs/frigate-config-*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm -f
-                  # recordings/clips -> incremental mirror (only new segments transfer)
+                  apk add --no-cache rsync >/dev/null
+                  # intact file mirrors into the backup/frigate dataset: browsable
+                  # (mount the NFS elsewhere and open frigate.db directly) and
+                  # dedup-friendly on Storj via Kopia (unlike gzipped tarballs).
+                  # config volume: frigate.db, config.yml, semantic/face/lpr data
+                  rsync -a --delete /src/config/ /nfs/config/
+                  # recordings/clips: only new/changed segments transfer
                   rsync -a --delete /src/media/ /nfs/media/
-                  echo "frigate: config tarball + media mirror written ($TS)"
+                  echo "frigate: config + media mirrored"
               volumeMounts:
                 - { name: src-config, mountPath: /src/config, readOnly: true }
                 - { name: src-media, mountPath: /src/media, readOnly: true }
@@ -155,7 +154,7 @@ data:
               ephemeral:
                 volumeClaimTemplate:
                   spec:
-                    storageClassName: longhorn-v2
+                    storageClassName: longhorn-v2-backup-clone
                     accessModes: ["ReadWriteOnce"]
                     dataSource:
                       apiGroup: snapshot.storage.k8s.io
@@ -168,7 +167,7 @@ data:
               ephemeral:
                 volumeClaimTemplate:
                   spec:
-                    storageClassName: longhorn-v2
+                    storageClassName: longhorn-v2-backup-clone
                     accessModes: ["ReadWriteOnce"]
                     dataSource:
                       apiGroup: snapshot.storage.k8s.io
