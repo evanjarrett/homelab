@@ -1,0 +1,30 @@
+# Tailscale's control protocol (TS2021 / Noise) registers via a POST to /ts2021
+# with `Upgrade: tailscale-control-protocol`. Envoy only passes upgrade types it
+# knows about, so the istio gateway rejects the dial (clients see 403 on
+# /ts2021) and registration fails. Register the upgrade type on the jarrett-net
+# gateway's HTTP connection manager so the noise dial passes through to
+# headscale. Scoped to the gateway workload only.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: headscale-noise-upgrade
+  namespace: gateway
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: jarrett-net
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            upgrade_configs:
+              - upgrade_type: tailscale-control-protocol
