@@ -1,9 +1,11 @@
-# Tailscale's control protocol (TS2021 / Noise) registers via a POST to /ts2021
-# with `Upgrade: tailscale-control-protocol`. Envoy only passes upgrade types it
-# knows about, so the istio gateway rejects the dial (clients see 403 on
-# /ts2021) and registration fails. Register the upgrade type on the jarrett-net
-# gateway's HTTP connection manager so the noise dial passes through to
-# headscale. Scoped to the gateway workload only.
+# Tailscale uses two custom HTTP upgrades that Envoy strips unless registered:
+#   - tailscale-control-protocol (TS2021/Noise): POST /ts2021 for registration;
+#     stripped -> clients get 403 on /ts2021 and can't register.
+#   - DERP: GET /derp for the embedded relay (the fallback that survives
+#     UDP-blocking networks); stripped -> headscale returns 426 and the relay
+#     never connects.
+# Register both upgrade types on the jarrett-net gateway's HTTP connection
+# manager so they pass through to headscale. Scoped to the gateway workload.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -28,3 +30,4 @@ spec:
             "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
             upgrade_configs:
               - upgrade_type: tailscale-control-protocol
+              - upgrade_type: derp
