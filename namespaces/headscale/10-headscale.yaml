@@ -1,0 +1,268 @@
+---
+# Headscale control-plane config. Mounted read-only at /etc/headscale/config.yaml.
+# Schema tracks headscale v0.29.x — bump alongside the image tag below.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: headscale-config
+  namespace: headscale
+data:
+  config.yaml: |
+    # Public URL clients hit. Must be externally reachable over 443 (gateway
+    # terminates TLS via the existing *.jarrett.net wildcard cert). j5t.io is
+    # split-horizon/internal-only, so headscale lives on the public jarrett.net.
+    server_url: https://headscale.jarrett.net
+    listen_addr: 0.0.0.0:8080
+    metrics_listen_addr: 0.0.0.0:9090
+    grpc_listen_addr: 0.0.0.0:50443
+    grpc_allow_insecure: false
+
+    noise:
+      private_key_path: /var/lib/headscale/noise_private.key
+
+    prefixes:
+      v4: 100.64.0.0/10
+      v6: fd7a:115c:a1e0::/48
+      allocation: sequential
+
+    # Self-hosted embedded DERP — full independence from Tailscale's infra.
+    # DERP relay rides the HTTPS endpoint (TCP 443 via the gateway), which is
+    # what survives UDP-blocking networks (hotels/captive portals). STUN is
+    # exposed separately on UDP 3478 via the MetalLB LoadBalancer below.
+    derp:
+      server:
+        enabled: true
+        region_id: 999
+        region_code: "homelab"
+        region_name: "Homelab Embedded DERP"
+        verify_clients: true
+        stun_listen_addr: "0.0.0.0:3478"
+        private_key_path: /var/lib/headscale/derp_server_private.key
+        automatically_add_embedded_derp_region: true
+        # Public IP advertised for the STUN endpoint (WAN UDP 3478 -> 192.168.3.15).
+        ipv4: 162.234.19.157
+      # Empty -> do NOT pull Tailscale's public DERP map. Embedded region only.
+      urls: []
+      paths: []
+      auto_update_enabled: false
+      update_frequency: 24h
+
+    disable_check_updates: true
+
+    database:
+      type: sqlite
+      sqlite:
+        path: /var/lib/headscale/db.sqlite
+        write_ahead_log: true
+
+    dns:
+      magic_dns: true
+      base_domain: tailnet.jarrett.net
+      override_local_dns: false
+      search_domains: []
+      # Split DNS: only these internal zones resolve via knotdns (192.168.3.2,
+      # reachable over the tunnel through the subnet router). Everything else
+      # stays on the client's own resolver — knotdns is authoritative-only and
+      # can't do general recursion.
+      nameservers:
+        split:
+          j5t.io:
+            - 192.168.3.2
+          jarrett.net:
+            - 192.168.3.2
+
+    policy:
+      mode: file
+      path: ""
+
+    log:
+      level: info
+      format: text
+
+    unix_socket: /var/run/headscale/headscale.sock
+    unix_socket_permission: "0770"
+
+    node:
+      ephemeral:
+        inactivity_timeout: 30m
+---
+# Persistent state: SQLite DB + noise/DERP private keys. Longhorn v2.
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: pvc-headscale-data
+  namespace: longhorn-system
+spec:
+  size: "1073741824"
+  numberOfReplicas: 3
+  frontend: blockdev
+  accessMode: rwo
+  dataLocality: disabled
+  dataEngine: v2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-headscale-data
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: pvc-headscale-data
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: headscale-data-claim
+  namespace: headscale
+spec:
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  volumeName: pvc-headscale-data
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: headscale
+  namespace: headscale
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: headscale
+  strategy:
+    # SQLite on a RWO volume -> only one instance may hold it at a time.
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: headscale
+    spec:
+      # RWO Longhorn v2 volume can only attach where a v2 instance-manager runs.
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      containers:
+        - name: headscale
+          image: ghcr.io/juanfont/headscale:v0.29.1
+          imagePullPolicy: IfNotPresent
+          args: ["serve"]
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+            - containerPort: 9090
+              name: metrics
+              protocol: TCP
+            - containerPort: 3478
+              name: stun
+              protocol: UDP
+            - containerPort: 50443
+              name: grpc
+              protocol: TCP
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 1000m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - mountPath: /etc/headscale
+              name: config
+              readOnly: true
+            - mountPath: /var/lib/headscale
+              name: data
+            - mountPath: /var/run/headscale
+              name: run
+      volumes:
+        - name: config
+          configMap:
+            name: headscale-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: headscale-data-claim
+        - name: run
+          emptyDir: {}
+---
+# Control-plane + DERP-over-HTTPS, fronted by the gateway (TLS terminated there).
+apiVersion: v1
+kind: Service
+metadata:
+  name: headscale-http
+  namespace: headscale
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: headscale
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+    - name: grpc
+      port: 50443
+      targetPort: grpc
+      protocol: TCP
+---
+# STUN must be publicly reachable over UDP for NAT traversal. Dedicated MetalLB
+# IP; forward WAN UDP 3478 -> 192.168.3.15 on the router.
+apiVersion: v1
+kind: Service
+metadata:
+  name: headscale-stun
+  namespace: headscale
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.15
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: headscale
+  ports:
+    - name: stun
+      port: 3478
+      targetPort: stun
+      protocol: UDP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: headscale-tls-route
+  namespace: headscale
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - headscale.jarrett.net
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: headscale-http
+          port: 8080

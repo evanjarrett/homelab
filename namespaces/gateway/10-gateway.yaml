@@ -24,6 +24,7 @@ spec:
               - website
               - proxy
               - loom-system
+              - headscale
       tls:
         mode: Terminate
         certificateRefs:

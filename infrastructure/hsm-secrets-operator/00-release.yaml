@@ -86,3 +86,6 @@ spec:
         - name: larapaper
           namespace: trmnl
           syncInterval: 300
+        - name: headscale
+          namespace: headscale
+          syncInterval: 300
