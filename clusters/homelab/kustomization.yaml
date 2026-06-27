@@ -5,3 +5,4 @@ resources:
   - sources.yaml
   - infrastructure.yaml
   - namespaces.yaml
+  - snapshot-controller-config.yaml

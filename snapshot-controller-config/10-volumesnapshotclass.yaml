@@ -1,0 +1,18 @@
+# VolumeSnapshotClass for the app-data backup jobs. type: snap = an in-cluster
+# Longhorn snapshot (fast, no backupstore round-trip); the backup worker then
+# provisions a temporary read-only full-copy clone PVC from the snapshot.
+#
+# This lives in its OWN Flux Kustomization (clusters/homelab/snapshot-controller-config.yaml,
+# dependsOn: infrastructure) rather than under ./infrastructure, because Flux
+# dry-runs a whole Kustomization as one set: a VolumeSnapshotClass cannot be
+# validated in the same set that first installs its CRD (via the snapshot-controller
+# HelmRelease). Separating it lets the CRD register first; this Kustomization then
+# retries until the dry-run passes — and a fresh-cluster bootstrap still converges.
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: longhorn-snap
+driver: driver.longhorn.io
+deletionPolicy: Delete
+parameters:
+  type: snap

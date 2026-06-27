@@ -1,0 +1,19 @@
+# Applies cluster resources that depend on CRDs installed by the infrastructure
+# layer (the snapshot-controller HelmRelease). Kept out of the infrastructure
+# Kustomization so its dry-run runs only after those CRDs exist; retries until
+# they do.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: snapshot-controller-config
+  namespace: flux-system
+spec:
+  interval: 10m
+  retryInterval: 1m
+  path: ./snapshot-controller-config
+  prune: true
+  dependsOn:
+    - name: infrastructure
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
