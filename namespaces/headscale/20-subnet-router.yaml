@@ -80,8 +80,11 @@ spec:
                 secretKeyRef:
                   name: headscale
                   key: TS_AUTHKEY
+            # --accept-routes so this router can reach back to subnets advertised
+            # by other nodes (e.g. the GL-MT3000 travel router's 192.168.8.0/24),
+            # making downstream-device-to-home (site-to-site) routing work.
             - name: TS_EXTRA_ARGS
-              value: "--login-server=https://headscale.jarrett.net"
+              value: "--login-server=https://headscale.jarrett.net --accept-routes"
             # Sourced from the HSM secret (set the TS_ROUTES key alongside
             # TS_AUTHKEY) so no network topology lives in the manifest.
             - name: TS_ROUTES
