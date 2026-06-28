@@ -41,12 +41,12 @@ spec:
       requests:
         memory: 8Gi
         cpu: 4000m
-        gpu.intel.com/i915: 1
+        gpu.intel.com/xe: 1
         devic.es/apex: 2
       limits:
         memory: 16Gi
         cpu: 4000m
-        gpu.intel.com/i915: 1
+        gpu.intel.com/xe: 1
         devic.es/apex: 2
     securityContext:
       capabilities:
