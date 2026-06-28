@@ -159,7 +159,7 @@ spec:
           days: 0
           mode: all
       ffmpeg:
-        hwaccel_args: preset-intel-qsv-h264
+        hwaccel_args: preset-vaapi
         output_args:
           record: preset-record-generic-audio-copy
       cameras:
