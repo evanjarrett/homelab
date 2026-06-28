@@ -188,7 +188,10 @@ metadata:
   namespace: frigate
 spec:
   schedule: "0 23 * * *"   # nightly 23:00, well before TrueCloud task #2 at 03:00
-  suspend: true            # arm after one manual validation of the snapshot->clone path
+  suspend: false           # armed 2026-06-27 (validated). NOTE: v2 snapshots are safe on
+                           # healthy nodes; Longhorn #13331 only bites a node whose dm state
+                           # got degraded. If a run fails on dmsetup-suspend, recover by
+                           # moving the volume to a healthy node (see backup memory).
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3

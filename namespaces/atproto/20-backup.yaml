@@ -217,7 +217,9 @@ metadata:
   namespace: atproto
 spec:
   schedule: "30 23 * * *"   # nightly 23:30, staggered after frigate, before TrueCloud task #2 at 03:00
-  suspend: true             # arm after one manual validation of the snapshot->clone path
+  suspend: false            # armed 2026-06-27 (validated). v2 snapshots safe on healthy nodes;
+                            # Longhorn #13331 only bites a degraded node — recover by moving the
+                            # volume to a healthy node (see backup memory).
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3
