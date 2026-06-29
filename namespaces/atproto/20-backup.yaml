@@ -217,9 +217,12 @@ metadata:
   namespace: atproto
 spec:
   schedule: "30 23 * * *"   # nightly 23:30, staggered after frigate, before TrueCloud task #2 at 03:00
-  suspend: false            # armed 2026-06-27 (validated). v2 snapshots safe on healthy nodes;
-                            # Longhorn #13331 only bites a degraded node — recover by moving the
-                            # volume to a healthy node (see backup memory).
+  suspend: true             # RE-SUSPENDED 2026-06-28 after the #13331 overnight wedge.
+                            # The "safe on healthy nodes" assumption was wrong: the Longhorn
+                            # default-group recurring backup rapid-snapshots ALL attached v2
+                            # volumes at 02:00, which wedged talos-gjw-4r3 (emergency_ro) and
+                            # took pds/larapaper/victoria-metrics down. Keep suspended until
+                            # #13331 is fixed; see backup-architecture memory.
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 3600
   successfulJobsHistoryLimit: 3

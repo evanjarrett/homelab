@@ -1,3 +1,15 @@
+# DISARMED 2026-06-28 — Longhorn #13331 incident.
+# These RecurringJobs targeted groups:[default] = EVERY attached v2 volume, with
+# concurrency:3. The 02:00 burst rapid-snapshots a dozen attached v2 volumes on
+# whichever node holds the most (talos-gjw-4r3, ~14 of ~20), which trips
+# longhorn/longhorn#13331: dmsetup suspend fails -> ext4 remounts emergency_ro ->
+# apps die (pds/larapaper/victoria-metrics all wedged 2026-06-28 overnight).
+# Node reboots only RECOVER the wedge, they don't prevent it (gjw-4r3 had already
+# been rebooted multiple times and still re-wedged). Root fix is to NOT snapshot
+# attached v2 volumes in a rapid group burst.
+# Re-point from group `default` to `none` (a group no volume carries) so the jobs
+# stay defined+valid but match zero volumes. DO NOT restore `default` until #13331
+# is fixed in a 1.12.x. See backup-architecture memory.
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -9,7 +21,7 @@ spec:
   retain: 10
   concurrency: 3
   groups:
-    - default
+    - none  # was: default — disarmed, see header (#13331)
   labels:
     app: longhorn-backup
 ---
@@ -24,7 +36,7 @@ spec:
   retain: 3
   concurrency: 3
   groups:
-    - default
+    - none  # was: default — disarmed, see header (#13331)
   labels:
     app: longhorn-backup
 ---
@@ -39,6 +51,6 @@ spec:
   retain: 10
   concurrency: 3
   groups:
-    - default
+    - none  # was: default — disarmed, see header (#13331)
   labels:
     app: longhorn-cleanup
