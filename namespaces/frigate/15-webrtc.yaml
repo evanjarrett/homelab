@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frigate-webrtc
+  namespace: frigate
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: 192.168.3.14
+spec:
+  type: LoadBalancer
+  # WebRTC needs the client's media to reach a single, stable IP. go2rtc
+  # advertises 192.168.3.14:8555 as its ICE candidate (see go2rtc.webrtc
+  # in 00-release.yaml), so that IP must answer on 8555 for both UDP
+  # (preferred) and TCP (fallback when UDP is blocked). k8s 1.36 + MetalLB
+  # 0.16 support a single mixed-protocol Service, so no second Service or
+  # allow-shared-ip workaround is needed.
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/instance: frigate
+    app.kubernetes.io/name: frigate
+  ports:
+    - name: webrtc-udp
+      port: 8555
+      protocol: UDP
+      targetPort: 8555
+    - name: webrtc-tcp
+      port: 8555
+      protocol: TCP
+      targetPort: 8555
