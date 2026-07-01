@@ -131,7 +131,7 @@ data:
             storage.longhorn-v2: "true"
           containers:
             - name: copy
-              image: alpine:3.21
+              image: alpine:3.24
               command: ["/bin/sh", "-c"]
               args:
                 - |
@@ -208,7 +208,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: orchestrate
-              image: alpine/k8s:1.36.1
+              image: alpine/k8s:1.36.2
               command: ["/bin/sh", "/scripts/orchestrate.sh"]
               volumeMounts:
                 - { name: scripts, mountPath: /scripts }
