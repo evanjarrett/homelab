@@ -24,7 +24,7 @@ spec:
     strategy:
       type: Recreate
     image:
-      tag: 0.17.1 # renovate: image=ghcr.io/blakeblackshear/frigate
+      tag: 0.17.2 # renovate: image=ghcr.io/blakeblackshear/frigate
     envFromSecrets:
       - frigate
     env:

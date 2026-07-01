@@ -173,7 +173,7 @@ data:
               type: RuntimeDefault
           containers:
             - name: copy
-              image: alpine:3.21
+              image: alpine:3.24
               command: ["/bin/sh", "-c"]
               args:
                 - |
@@ -243,7 +243,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: orchestrate
-              image: alpine/k8s:1.36.1
+              image: alpine/k8s:1.36.2
               command: ["/bin/sh", "/scripts/orchestrate.sh"]
               env:
                 - name: HOME          # kubectl cache dir writable as non-root
