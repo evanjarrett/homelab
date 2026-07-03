@@ -61,6 +61,20 @@ data:
         Port          5170
         Format        json
         Tag           talos
+        # Stamp each record with the sender's IP so kernel lines can be
+        # attributed to a node — the shipped JSON itself has no node field.
+        Source_Address_Key node
+
+    # auditd was ~71% of the ring buffer (SYSCALL/PATH/AVC bundles from normal
+    # pod fs activity) and machined gRPC success access-logs another ~6%,
+    # compressing retention to ~2 days — which is how the Jun 29/30 CM4 crash
+    # logs were lost. Drop both; auditd is still viewable live via
+    # `talosctl logs auditd` if ever needed.
+    [FILTER]
+        Name          grep
+        Match         talos
+        Exclude       talos-service auditd
+        Exclude       msg machined\sOK\s\[
 
     [OUTPUT]
         Name          file
