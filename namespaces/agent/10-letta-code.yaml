@@ -52,6 +52,9 @@ spec:
       # v2 (SPDK) volumes only attach where a v2 instance-manager runs.
       nodeSelector:
         storage.longhorn-v2: "true"
+      # Read-only, namespace-local view (30-rbac.yaml) so Jett can kubectl-explore
+      # its own namespace.
+      serviceAccountName: jett
       imagePullSecrets:
         - name: atcr-login       # synced into this ns by the HSM operator
       securityContext:

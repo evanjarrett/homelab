@@ -1,0 +1,31 @@
+# Jett's hands inside its own namespace. The letta-code runtime pod runs as this
+# ServiceAccount so the agent can tool-call `kubectl` (a static binary on its
+# /data PVC) and explore / build things where it lives.
+#
+# Scope: the built-in `edit` ClusterRole, bound namespace-locally — Jett can create
+# and manage workloads/services/PVCs/configmaps inside `agent` only. `edit` cannot
+# touch RBAC, ResourceQuotas, or LimitRanges, so Jett can't widen its own
+# permissions or raise its own caps (those live in 40-quota.yaml). Note `edit` can
+# read namespace secrets — both are Jett's own anyway (its ws token is already
+# mounted in the pod; atcr-login is the shared pull secret). Restricted PSA on the
+# namespace still applies to anything Jett launches.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jett
+  namespace: agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jett-edit
+  namespace: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+  - kind: ServiceAccount
+    name: jett
+    namespace: agent

@@ -1,0 +1,42 @@
+# Hard ceiling on what the agent namespace (i.e. Jett) can consume in aggregate.
+# Managed here, not by Jett: the `edit` role it holds cannot modify quotas.
+#
+# Baseline today: letta-code (req 100m/256Mi, lim 2/2Gi) + agent-gateway
+# (req 50m/128Mi, lim 1/512Mi), 2 PVCs / 6Gi. The numbers below leave Jett real
+# room to experiment (~a few small services) without letting a runaway loop eat
+# the cluster.
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: agent-quota
+  namespace: agent
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 8Gi
+    persistentvolumeclaims: "6"
+    requests.storage: 30Gi
+    services: "10"
+    services.loadbalancers: "0"   # no grabbing MetalLB IPs; use HTTPRoutes
+---
+# With a quota on cpu/memory, pods that don't declare requests/limits are REJECTED
+# at admission. Jett won't always remember to set them, so give every container
+# sane defaults instead of a confusing Forbidden error.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: agent-defaults
+  namespace: agent
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 50m
+        memory: 128Mi
+      default:
+        cpu: 500m
+        memory: 512Mi
