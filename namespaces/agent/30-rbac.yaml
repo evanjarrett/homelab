@@ -29,3 +29,48 @@ subjects:
   - kind: ServiceAccount
     name: jett
     namespace: agent
+---
+# Cluster-wide READ so Jett can inventory the cluster it lives in (e.g. spot the
+# spare Intel GPU in node allocatable). `view` covers namespaced resources
+# everywhere (never secrets); writes remain agent-namespace-only via jett-edit.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jett-view-all
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+subjects:
+  - kind: ServiceAccount
+    name: jett
+    namespace: agent
+---
+# ...and the cluster-scoped inventory `view` doesn't include.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jett-cluster-observer
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "persistentvolumes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jett-cluster-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jett-cluster-observer
+subjects:
+  - kind: ServiceAccount
+    name: jett
+    namespace: agent
