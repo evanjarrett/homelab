@@ -42,6 +42,11 @@
       "description": "Don't automerge major updates",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "Private, self-built images on atcr.io (no Renovate creds; custom tag schemes) — don't track. Only versioned tags trigger lookups; :latest images (e.g. git-summarizer) never complained because Renovate skips them.",
+      "matchPackageNames": ["atcr.io/**"],
+      "enabled": false
     }
   ],
   "schedule": ["after 12am and before 6am"],

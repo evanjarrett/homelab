@@ -22,7 +22,9 @@ metadata:
   name: sealed-secrets-helmrepo
   namespace: flux-system
 spec:
-  url: https://bitnami-labs.github.io/sealed-secrets
+  # Project moved orgs: bitnami-labs.github.io -> bitnami.github.io (old Pages site
+  # is a hard 404). Same chart/versioning (2.18.x, 2.19.x); drop-in URL swap.
+  url: https://bitnami.github.io/sealed-secrets
   interval: 2h
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
