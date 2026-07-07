@@ -106,6 +106,17 @@ spec:
             - name: ws-token
               mountPath: /etc/letta
               readOnly: true
+            # Jett-managed config/creds. Deliberately mounted as whole dirs (NOT
+            # subPath) and consumed as files (NOT env) so kubectl-driven updates
+            # refresh live (~60s) with no pod restart. optional:true -> the pod
+            # starts before the objects exist. Each secret/CM key becomes a file:
+            # /secrets/<key>, /config/<key>.
+            - name: jett-config
+              mountPath: /config
+              readOnly: true
+            - name: jett-secrets
+              mountPath: /secrets
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -116,6 +127,18 @@ spec:
             items:
               - key: token
                 path: token
+        # The jett-config/jett-secrets objects are intentionally NOT declared in
+        # git: Jett creates/patches them imperatively via its `edit` rights, and
+        # since Flux never adds them to its inventory, `prune: true` leaves them
+        # alone. Platform owns the pod shape here; Jett owns the contents.
+        - name: jett-config
+          configMap:
+            name: jett-config
+            optional: true
+        - name: jett-secrets
+          secret:
+            secretName: jett-secrets
+            optional: true
 ---
 apiVersion: v1
 kind: Service
