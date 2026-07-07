@@ -89,3 +89,10 @@ spec:
         - name: headscale
           namespace: headscale
           syncInterval: 300
+        # Pull secret for Flux source-controller to fetch this very chart from
+        # the private OCI registry (atcr.io). Bootstrapped by the running
+        # operator; see sources/00-helmrepos.yaml hsm-secrets-helmrepo.
+        - name: atcr-login
+          secretType: "kubernetes.io/dockerconfigjson"
+          namespace: flux-system
+          syncInterval: 300
