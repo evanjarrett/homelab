@@ -38,9 +38,7 @@ spec:
               name: hsm-pin
               key: pin
           discovery:
-            usb:
-              vendorId: "20a0"
-              productId: "4230"
+            autoDiscovery: true
     hsmsecret:
       # Enable HSMSecret resource creation
       enabled: true
