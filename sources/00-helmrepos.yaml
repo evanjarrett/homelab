@@ -117,14 +117,8 @@ metadata:
   name: hsm-secrets-helmrepo
   namespace: flux-system
 spec:
-  # Chart moved from GitHub Pages to the private OCI registry (atcr.io).
-  # source-controller authenticates with the atcr-login pull secret, synced
-  # into flux-system by the HSM operator itself (see infrastructure/hsm-secrets-operator).
-  type: oci
-  url: oci://atcr.io/evan.jarrett.net
+  url: https://evanjarrett.github.io/hsm-secrets-operator
   interval: 1m
-  secretRef:
-    name: atcr-login
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository

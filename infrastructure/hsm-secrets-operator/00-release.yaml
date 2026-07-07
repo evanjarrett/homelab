@@ -13,7 +13,7 @@ spec:
         kind: HelmRepository
         name: hsm-secrets-helmrepo
         namespace: flux-system
-      version: 0.10.0
+      version: 0.8.0
   interval: 5m
   install:
     createNamespace: true
@@ -88,11 +88,4 @@ spec:
           syncInterval: 300
         - name: headscale
           namespace: headscale
-          syncInterval: 300
-        # Pull secret for Flux source-controller to fetch this very chart from
-        # the private OCI registry (atcr.io). Bootstrapped by the running
-        # operator; see sources/00-helmrepos.yaml hsm-secrets-helmrepo.
-        - name: atcr-login
-          secretType: "kubernetes.io/dockerconfigjson"
-          namespace: flux-system
           syncInterval: 300
