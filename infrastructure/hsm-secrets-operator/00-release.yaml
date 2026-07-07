@@ -37,6 +37,10 @@ spec:
             pinSecret:
               name: hsm-pin
               key: pin
+            # Auto-initialize a BLANK/uninitialized token: generate a one-shot
+            # SO-PIN and set the user PIN from hsm-pin. Only ever touches tokens
+            # positively detected as uninitialized; never re-inits a live HSM.
+            autoProvision: true
           discovery:
             autoDiscovery: true
     hsmsecret:
