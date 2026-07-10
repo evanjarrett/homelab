@@ -379,6 +379,22 @@ spec:
             - source_labels: [__meta_kubernetes_pod_name]
               action: replace
               target_label: kubernetes_pod_name
+          metric_relabel_configs:
+            # Friendly per-card label so dashboards/queries read "Arc Pro B50"
+            # instead of a raw PCI BDF (every hw_* metric carries pci_bdf). BDFs
+            # are stable for these fixed cards; update if a card is recabled.
+            - source_labels: [pci_bdf]
+              regex: "0000:03:00.0"
+              target_label: card
+              replacement: "Arc Pro B50"
+            - source_labels: [pci_bdf]
+              regex: "0000:07:00.0"
+              target_label: card
+              replacement: "Arc A310"
+            - source_labels: [pci_bdf]
+              regex: "0000:67:00.0"
+              target_label: card
+              replacement: "Arc A380"
         - job_name: "kubernetes-pods"
           kubernetes_sd_configs:
             - role: pod
