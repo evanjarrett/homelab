@@ -353,6 +353,32 @@ spec:
             - source_labels: [hostname, gpu_id]
               separator: "-"
               target_label: gpu_uuid
+        # Intel XPU Manager (xpumd) exposes hw_* GPU metrics on :8080. Dedicated
+        # job (rather than the generic pod-annotation path) so we can add the
+        # `node` label the Intel dashboard keys its Node variable on
+        # (label_values(hw_gpu_info, node)). The pod carries no prometheus.io
+        # scrape annotation, so the kubernetes-pods job ignores it and there's
+        # no double scrape.
+        - job_name: "intel-gpu-exporter"
+          kubernetes_sd_configs:
+            - role: pod
+              namespaces:
+                names: ["kube-system"]
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+              regex: xpumd
+              action: keep
+            - source_labels: [__meta_kubernetes_pod_container_port_number]
+              regex: "8080"
+              action: keep
+            - source_labels: [__meta_kubernetes_pod_node_name]
+              target_label: node
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: kubernetes_namespace
+            - source_labels: [__meta_kubernetes_pod_name]
+              action: replace
+              target_label: kubernetes_pod_name
         - job_name: "kubernetes-pods"
           kubernetes_sd_configs:
             - role: pod

@@ -59,11 +59,11 @@ spec:
       pullPolicy: IfNotPresent
     nodeSelector:
       intel.feature.node.kubernetes.io/gpu: "true"
-    podAnnotations:
-      prometheus.io/scrape: "true"
-      prometheus.io/port: "8080"
-      prometheus.io/path: "/metrics"
-    # No Prometheus operator here (vmagent scrapes via pod annotations), and we
+    # No pod scrape annotation: a dedicated vmagent job (`intel-gpu-exporter`
+    # in the victoria-metrics HelmRelease) scrapes :8080 and adds the `node`
+    # label the Intel Grafana dashboard keys on. Annotating here too would make
+    # the generic kubernetes-pods job double-scrape.
+    # No Prometheus operator here (vmagent scrapes via the dedicated job), and we
     # ship the dashboard ourselves — so leave these off.
     service:
       create: false
