@@ -71,3 +71,13 @@ spec:
       monitor: false
     grafana:
       dashboards: false
+    # By default the metrics pipeline only exports over the intelxpuinfo gRPC
+    # unix socket — nothing listens on :8080. Add the prometheus exporter (its
+    # config/endpoint 0.0.0.0:8080 is already defined in the chart) to the
+    # pipeline so vmagent can scrape it. Helm deep-merges, so the default
+    # receivers/processors on this pipeline are preserved.
+    config:
+      service:
+        pipelines:
+          metrics:
+            exporters: [intelxpuinfo, prometheus]
