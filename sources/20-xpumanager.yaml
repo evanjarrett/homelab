@@ -1,0 +1,14 @@
+# Intel XPU Manager (xpumd) Helm chart lives IN the xpumanager git repo
+# (xpumd/charts/xpumd) — it is NOT published to intel.github.io/helm-charts,
+# so we source it straight from git and let the HelmRelease build it.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: xpumanager-repo
+  namespace: flux-system
+spec:
+  interval: 30m
+  url: https://github.com/intel/xpumanager.git
+  ref:
+    tag: v2.0.0
+  timeout: 5m

@@ -1,0 +1,73 @@
+# Intel XPU Manager — Prometheus exporter for Intel GPU telemetry (utilization,
+# VRAM, engine activity, power, frequency, temperature) that node-exporter can't
+# provide. node-exporter's hwmon collector already gives us POWER + TEMP for the
+# Intel cards, but its `drm` collector only understands amdgpu's gpu_busy_percent
+# / VRAM sysfs — xe and i915 don't expose those, so utilization + VRAM need this.
+# Intel's device-plugins monitoring doc points here:
+#   github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/monitoring.md
+#
+# Cards covered (both Intel GPU nodes, selected by NFD label):
+#   talos-cgy-c3m (.161): Arc Pro B50 (xe) + Arc A310 (i915)
+#   talos-gjw-4r3 (.162): Arc A380 (i915)
+#
+# Uses the in-repo v2 chart (OpenTelemetry-collector based) from xpumanager-repo.
+#   gpuAccess: plugin  -> requests gpu.intel.com/monitoring: 1 (the unified
+#     resource our intel-device-plugins-gpu chart advertises; the split
+#     i915_monitoring / xe_monitoring resources have capacity 0 on these nodes).
+#   podAnnotations     -> vmagent's generic `kubernetes-pods` job scrapes :8080.
+#   grafana.dashboards -> left off; we adapt Intel's dashboard into the baked
+#     grafana configmap with the datasource repointed to victoriametrics.
+#
+# NOTE: XPUM reads via Level Zero Sysman; client-Arc metric coverage is partial.
+# After first reconcile, verify which xpum_* metrics actually populate — some
+# classes (e.g. memory/util) may read 0 on client SKUs, like the AMD exporter
+# does on the Strix APU. Where a class is dead we fall back to hwmon power/temp.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: intel-xpumanager
+  namespace: kube-system
+spec:
+  releaseName: intel-xpumanager
+  interval: 2h
+  dependsOn:
+    # needs the gpu.intel.com/monitoring resource advertised by the GPU plugin
+    - name: intel-device-plugin-gpu-helmrelease
+  chart:
+    spec:
+      chart: xpumd/charts/xpumd
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: xpumanager-repo
+        namespace: flux-system
+  maxHistory: 3
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    gpuAccess: plugin
+    image:
+      repository: ghcr.io/intel/xpumanager/xpumd
+      tag: v2.0.0
+      pullPolicy: IfNotPresent
+    nodeSelector:
+      intel.feature.node.kubernetes.io/gpu: "true"
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: "/metrics"
+    # No Prometheus operator here (vmagent scrapes via pod annotations), and we
+    # ship the dashboard ourselves — so leave these off.
+    service:
+      create: false
+    prometheus:
+      monitor: false
+    grafana:
+      dashboards: false
