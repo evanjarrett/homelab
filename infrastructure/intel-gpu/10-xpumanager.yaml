@@ -55,7 +55,7 @@ spec:
     gpuAccess: plugin
     image:
       repository: ghcr.io/intel/xpumanager/xpumd
-      tag: v2.0.0
+      tag: v2.0.1
       pullPolicy: IfNotPresent
     nodeSelector:
       intel.feature.node.kubernetes.io/gpu: "true"
