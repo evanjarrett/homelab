@@ -47,6 +47,22 @@ subjects:
     namespace: agent
 ---
 # ...and the cluster-scoped inventory `view` doesn't include.
+#
+# `view` is an aggregated role: it picks up any ClusterRole labelled
+# `rbac.authorization.k8s.io/aggregate-to-view: "true"`. cert-manager, Flux, Argo
+# and metrics-server each ship one, so Jett reads those APIs for free — which is
+# also why this list looks arbitrary. It's exactly the projects that *didn't*
+# ship an aggregate-to-view role. Check with:
+#
+#   kubectl get clusterroles -l rbac.authorization.k8s.io/aggregate-to-view=true
+#   kubectl get clusterrole view -o json | jq '[.rules[].apiGroups[]] | unique'
+#
+# Everything below is get/list/watch. Groups are enumerated rather than
+# wildcarded because RBAC has no deny rule: a blanket read on `*` would hand over
+# every Secret in the cluster, and there'd be no way to carve them back out. So
+# the rule is per-group, and a group only goes in this list once it's known to
+# carry no secret material. Within a vetted group, `*` on resources is fine and
+# keeps this from rotting each time the project ships another CRD.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -61,6 +77,61 @@ rules:
   - apiGroups: ["metrics.k8s.io"]
     resources: ["nodes", "pods"]
     verbs: ["get", "list"]
+  # Cluster-scoped halves of resources `view` only grants namespaced.
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingressclasses"]
+    verbs: ["get", "list", "watch"]
+  # How traffic actually reaches things here: 25 HTTPRoutes and no
+  # VirtualServices, but the Istio CRDs are installed and EnvoyFilter is load
+  # bearing (headscale ts2021/derp), so Jett needs to see both stacks to reason
+  # about ingress at all.
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups:
+      - "networking.istio.io"
+      - "security.istio.io"
+      - "telemetry.istio.io"
+      - "extensions.istio.io"
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # LoadBalancer address allocation + the BGP speakers behind it.
+  - apiGroups: ["metallb.io", "frrk8s.metallb.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # Storage truth lives in the Longhorn + snapshot CRDs, not in the PVC objects
+  # `view` already shows.
+  - apiGroups: ["longhorn.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["snapshot.storage.k8s.io", "groupsnapshot.storage.k8s.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # Hardware inventory — the same reason `nodes` is in this role. Node
+  # allocatable says a GPU exists; these say which one and on which node.
+  - apiGroups:
+      - "nfd.k8s-sigs.io"
+      - "amd.com"
+      - "deviceplugin.intel.com"
+      - "fpga.intel.com"
+      - "kmm.sigs.x-k8s.io"
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # Home-grown CRDs. Vetted for secret material before landing here: HSMSecret
+  # and SecretService are named alarmingly but hold only refs and checksums —
+  # the material itself lives in the HSM and the synced Secret, neither of which
+  # this grants outside `agent`. Re-check that before adding a j5t.io group.
+  - apiGroups: ["hsm.j5t.io", "apps.j5t.io", "loom.j5t.io"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+  # API discovery — so Jett can find out what a cluster CR *is* before asking for
+  # it, instead of guessing from the name.
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apiregistration.k8s.io"]
+    resources: ["apiservices"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
