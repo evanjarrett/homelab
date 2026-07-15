@@ -10,5 +10,5 @@ spec:
   interval: 30m
   url: https://github.com/intel/xpumanager.git
   ref:
-    tag: v2.0.0
+    tag: v2.0.1
   timeout: 5m
