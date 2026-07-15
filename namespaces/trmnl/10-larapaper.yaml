@@ -63,7 +63,7 @@ spec:
         # file doesn't exist on first boot. Pre-create it (owned by 82:82 via
         # the pod securityContext) so AUTORUN's `php artisan migrate` succeeds.
         - name: init-sqlite
-          image: ghcr.io/usetrmnl/larapaper:latest
+          image: ghcr.io/usetrmnl/larapaper:0.39.0
           command: ["sh", "-c", "touch /db/database.sqlite"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -74,7 +74,7 @@ spec:
               mountPath: /db
       containers:
         - name: larapaper
-          image: ghcr.io/usetrmnl/larapaper:latest
+          image: ghcr.io/usetrmnl/larapaper:0.39.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -167,7 +167,7 @@ spec:
         # then always hits the warm current_image cache (~40 ms) and never waits
         # on Chromium. The ~4s render happens here, off the poll path.
         - name: refresher
-          image: ghcr.io/usetrmnl/larapaper:latest
+          image: ghcr.io/usetrmnl/larapaper:0.39.0
           imagePullPolicy: IfNotPresent
           command:
             - sh
