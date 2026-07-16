@@ -353,48 +353,6 @@ spec:
             - source_labels: [hostname, gpu_id]
               separator: "-"
               target_label: gpu_uuid
-        # Intel XPU Manager (xpumd) exposes hw_* GPU metrics on :8080. Dedicated
-        # job (rather than the generic pod-annotation path) so we can add the
-        # `node` label the Intel dashboard keys its Node variable on
-        # (label_values(hw_gpu_info, node)). The pod carries no prometheus.io
-        # scrape annotation, so the kubernetes-pods job ignores it and there's
-        # no double scrape.
-        - job_name: "intel-gpu-exporter"
-          kubernetes_sd_configs:
-            - role: pod
-              namespaces:
-                names: ["kube-system"]
-          relabel_configs:
-            - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
-              regex: xpumd
-              action: keep
-            - source_labels: [__meta_kubernetes_pod_container_port_number]
-              regex: "8080"
-              action: keep
-            - source_labels: [__meta_kubernetes_pod_node_name]
-              target_label: node
-            - source_labels: [__meta_kubernetes_namespace]
-              action: replace
-              target_label: kubernetes_namespace
-            - source_labels: [__meta_kubernetes_pod_name]
-              action: replace
-              target_label: kubernetes_pod_name
-          metric_relabel_configs:
-            # Friendly per-card label so dashboards/queries read "Arc Pro B50"
-            # instead of a raw PCI BDF (every hw_* metric carries pci_bdf). BDFs
-            # are stable for these fixed cards; update if a card is recabled.
-            - source_labels: [pci_bdf]
-              regex: "0000:03:00.0"
-              target_label: card
-              replacement: "Arc Pro B50"
-            - source_labels: [pci_bdf]
-              regex: "0000:07:00.0"
-              target_label: card
-              replacement: "Arc A310"
-            - source_labels: [pci_bdf]
-              regex: "0000:67:00.0"
-              target_label: card
-              replacement: "Arc A380"
         - job_name: "kubernetes-pods"
           kubernetes_sd_configs:
             - role: pod
@@ -441,6 +399,24 @@ spec:
               target_label: node
             - source_labels: [__meta_kubernetes_pod_node_name]
               target_label: instance
+          # Friendly per-card label for the Intel Arc cards so the GPU dashboard
+          # reads "Arc Pro B50" instead of a raw hwmon chip id. node-exporter's
+          # hwmon `chip` label embeds the card's PCI BDF (e.g. ...0000:03:00_0).
+          # These replace the equivalent mapping the old xpumd job carried; BDFs
+          # are stable for these fixed cards; update if a card is recabled.
+          metric_relabel_configs:
+            - source_labels: [chip]
+              regex: ".*0000:03:00_0"
+              target_label: card
+              replacement: "Arc Pro B50"
+            - source_labels: [chip]
+              regex: ".*0000:07:00_0"
+              target_label: card
+              replacement: "Arc A310"
+            - source_labels: [chip]
+              regex: ".*0000:67:00_0"
+              target_label: card
+              replacement: "Arc A380"
         - job_name: "kube-state-metrics"
           kubernetes_sd_configs:
             - role: endpoints
