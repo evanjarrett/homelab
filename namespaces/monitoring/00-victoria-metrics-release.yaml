@@ -430,6 +430,10 @@ spec:
         # Longhorn manager exposes volume/replica/capacity metrics on the
         # longhorn-backend service :9500. Powers the Longhorn dashboard — the
         # most important one here since all cluster storage lives on Longhorn.
+        # The :9500 address match is required: the endpoints role also emits a
+        # target for every pod container port NOT bound to a Service port, so
+        # longhorn-manager's admission-wh:9502 (HTTPS) and recov-backend:9503
+        # (no /metrics) otherwise get scraped and log errors every interval.
         - job_name: "longhorn"
           kubernetes_sd_configs:
             - role: endpoints
@@ -438,6 +442,9 @@ spec:
           relabel_configs:
             - source_labels: [__meta_kubernetes_service_name]
               regex: longhorn-backend
+              action: keep
+            - source_labels: [__address__]
+              regex: ".+:9500"
               action: keep
         # Flux controllers serve gotk_* reconcile metrics on container port 8080
         # (named http-prom). No metrics Service exists, so discover via pods.
