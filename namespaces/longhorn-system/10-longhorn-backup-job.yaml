@@ -10,6 +10,17 @@
 # Re-point from group `default` to `none` (a group no volume carries) so the jobs
 # stay defined+valid but match zero volumes. DO NOT restore `default` until #13331
 # is fixed in a 1.12.x. See backup-architecture memory.
+#
+# INCOMPLETE-DISARM FIX 2026-07-23 — the `groups:[none]` disarm above does NOT
+# cover the `system-backup` task: a Longhorn *system backup* snapshots EVERY volume
+# regardless of `groups`. It kept firing at 02:30 nightly (SystemBackup CRs + a
+# `snap-system-backup-*` snapshot on every v2 volume in a ~70s burst on gjw-4r3),
+# re-triggering the exact #13331 emergency_ro wedge — this is what silently bricked
+# atproto-pds + headscale-router-state + talos-logs-data read-only (found 2026-07-23).
+# Fix: keep the scheduled system-backup (it still captures Longhorn CR/config for DR)
+# but set parameters.volume-backup-policy=disabled so it NO LONGER snapshots volumes.
+# The 20-ro-mount-watchdog.yaml CronJob is the safety net for any residual wedge
+# (node loss, manual snapshot, etc.).
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -35,8 +46,13 @@ spec:
   task: system-backup
   retain: 3
   concurrency: 3
+  # system-backup IGNORES `groups`, so the group:none disarm doesn't stop it.
+  # volume-backup-policy=disabled = capture Longhorn CR/config only, snapshot NO
+  # volumes -> no #13331 storm. See header (2026-07-23).
+  parameters:
+    volume-backup-policy: disabled
   groups:
-    - none  # was: default — disarmed, see header (#13331)
+    - none  # cosmetic for system-backup (ignored); real fix is parameters above
   labels:
     app: longhorn-backup
 ---

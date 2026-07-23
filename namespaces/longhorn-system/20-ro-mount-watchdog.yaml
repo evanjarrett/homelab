@@ -1,0 +1,152 @@
+# Read-only Longhorn mount watchdog.
+#
+# WHY: Longhorn v2 (SPDK) surfaces transient backing-path disruptions (a backup
+# snapshot burst per #13331, a node/replica loss, an NVMe-oF reconnect) as hard
+# I/O errors to the guest block device. ext4's errors=remount-ro then latches the
+# filesystem read-only PERMANENTLY. Longhorn can't recover it: the volume stays
+# "attached, healthy" the whole time, so its auto-remount / auto-delete-on-detach
+# logic never fires. The app keeps passing liveness (health checks don't touch the
+# DB) while every write 500s — atproto-pds sat read-only for ~4 days undetected
+# (found 2026-07-23) this way.
+#
+# WHAT: every 2 min, scrape each node's node-exporter (hostNetwork :9100, reachable
+# because longhorn-system has no NetworkPolicy) for
+#   node_filesystem_readonly{device=~"/dev/longhorn/.*"} == 1
+# on a per-pod mount (the mountpoint path carries the CONSUMER pod's UID), and delete
+# that pod. Deletion detaches->reattaches the volume, which remounts it rw (CSI runs
+# fsck on attach). Bounds a wedge to ~1-2 min instead of days.
+#
+# SAFETY: only deletes pods that currently exist (stale metrics -> skip); refuses to
+# act if >6 pods are flagged at once (that's a systemic fault, not a stray wedge —
+# alert via logs and let a human look). Detection has no dependency on Longhorn or
+# VictoriaMetrics (the things that break) — only node-exporter + the API server.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ro-mount-watchdog
+  namespace: longhorn-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ro-mount-watchdog
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ro-mount-watchdog
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ro-mount-watchdog
+subjects:
+  - kind: ServiceAccount
+    name: ro-mount-watchdog
+    namespace: longhorn-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ro-mount-watchdog
+  namespace: longhorn-system
+data:
+  watchdog.sh: |
+    #!/bin/sh
+    # No `set -e`: a single node scrape failure must not abort the sweep.
+    set -u
+    export HOME=/tmp
+    TS() { date -u +%FT%TZ; }
+    MAX_ACT=6   # refuse to auto-delete more than this many pods in one pass
+
+    IPS=$(kubectl get nodes -o jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}')
+
+    uids=""
+    for ip in $IPS; do
+      m=$(wget -qO- --timeout=8 "http://$ip:9100/metrics" 2>/dev/null)
+      if [ -z "$m" ]; then echo "$(TS) warn: scrape $ip:9100 failed/empty"; continue; fi
+      # read-only (==1) longhorn per-pod mounts; the mountpoint carries the pod UID
+      f=$(printf '%s\n' "$m" | awk '
+        /^node_filesystem_readonly\{/ && /\/dev\/longhorn\// && /\/var\/lib\/kubelet\/pods\// && $NF==1' \
+        | sed -n 's#.*/pods/\([0-9a-f-]\{36\}\)/volumes/.*#\1#p')
+      uids="$uids $f"
+    done
+
+    uids=$(printf '%s\n' $uids | sed '/^$/d' | sort -u)
+    if [ -z "$uids" ]; then echo "$(TS) ok: no read-only Longhorn mounts"; exit 0; fi
+
+    n=$(printf '%s\n' "$uids" | wc -l | tr -d ' ')
+    if [ "$n" -gt "$MAX_ACT" ]; then
+      echo "$(TS) CRITICAL: $n pods on read-only Longhorn mounts (>$MAX_ACT) — refusing bulk auto-delete, needs a human. UIDs:"
+      printf '  %s\n' $uids
+      exit 1
+    fi
+
+    pods=$(kubectl get pods -A -o json)
+    for uid in $uids; do
+      t=$(printf '%s' "$pods" | jq -r --arg u "$uid" \
+        '.items[] | select(.metadata.uid==$u) | "\(.metadata.namespace) \(.metadata.name)"')
+      if [ -z "$t" ]; then
+        echo "$(TS) warn: read-only mount for pod uid=$uid but no live pod (stale metric?) — skip"
+        continue
+      fi
+      ns=${t%% *}; name=${t##* }
+      echo "$(TS) ALERT: read-only Longhorn mount in $ns/$name — deleting pod to force rw remount"
+      kubectl delete pod -n "$ns" "$name" --wait=false || echo "$(TS) warn: delete $ns/$name failed"
+    done
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ro-mount-watchdog
+  namespace: longhorn-system
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 100
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          serviceAccountName: ro-mount-watchdog
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: watchdog
+              image: alpine/k8s:1.36.2
+              command: ["/bin/sh", "/scripts/watchdog.sh"]
+              env:
+                - name: HOME
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - { name: scripts, mountPath: /scripts }
+          volumes:
+            - name: scripts
+              configMap:
+                name: ro-mount-watchdog
