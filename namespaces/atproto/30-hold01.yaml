@@ -145,19 +145,19 @@ spec:
   # before the new pod opens them.
   strategy:
     type: Recreate
-  # DELIBERATELY 0 UNTIL THE DATA IS RESTORED.
+  # The carstore and signing key were restored into pvc-hold01 on 2026-08-09
+  # from the retired UpCloud container and verified by sha256 end to end
+  # (db.sqlite3 dc07caba…, signing.key 183b7573…; PRAGMA integrity_check ok;
+  # 1190 layer / 38 crew / 36 stats records present).
   #
-  # Starting this pod against an empty volume does not fail — it bootstraps.
-  # With registration.owner_did set and no carstore present, the hold calls
-  # InitNewActor, writes a brand-new captain record, posts "online" to
-  # Bluesky, and requestCrawls the relays, all under the REAL
-  # did:web:hold01.atcr.io. The only log line is "Initialized empty repo".
-  # The Bluesky post cannot be retracted.
-  #
-  # Flip to 1 only after db.sqlite3 (+ -wal/-shm) and signing.key are in the
-  # PVC and checksummed. At 0, Flux can still reconcile the PVC and let
-  # cert-manager issue the listener cert.
-  replicas: 0
+  # WARNING for anyone recreating this PVC: never scale up against an empty
+  # volume. It does not fail — it bootstraps. With registration.owner_did set
+  # and no carstore present the hold calls InitNewActor, writes a brand-new
+  # captain record, posts "online" to Bluesky and requestCrawls the relays,
+  # all under the REAL did:web:hold01.atcr.io, logging only "Initialized
+  # empty repo". The Bluesky post cannot be retracted. Restore the data
+  # first, then scale.
+  replicas: 1
   selector:
     matchLabels:
       app: hold01
