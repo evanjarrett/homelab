@@ -67,6 +67,16 @@ spec:
         - name: bluesky
           namespace: atproto
           syncInterval: 300
+        # hold01 migration: S3 credentials for the UpCloud object storage
+        # bucket (keys AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).
+        - name: hold01-secrets
+          namespace: atproto
+          syncInterval: 300
+        # Image pull for atcr.io/evan.jarrett.net/hold.
+        - name: atcr-login
+          secretType: "kubernetes.io/dockerconfigjson"
+          namespace: atproto
+          syncInterval: 300
         - name: atcr-login
           secretType: "kubernetes.io/dockerconfigjson"
           namespace: loom-system

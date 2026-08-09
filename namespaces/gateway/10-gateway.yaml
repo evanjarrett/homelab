@@ -119,3 +119,32 @@ spec:
         mode: Terminate
         certificateRefs:
           - name: j5t-io-tls
+    # Added for the hold01 migration (namespaces/atproto/30-hold01*.yaml).
+    # Scoped to the exact hostname rather than *.atcr.io: atcr.io itself is the
+    # appview and is not served from this cluster, so a wildcard listener would
+    # claim hostnames this gateway cannot answer for.
+    #
+    # The gateway-level cert-manager.io/cluster-issuer annotation makes
+    # cert-manager's gateway-shim provision the hold01-atcr-io-tls Secret from
+    # this listener's hostname. That needs the ACME challenge for
+    # hold01.atcr.io to resolve to this gateway (192.168.3.1 via MetalLB),
+    # i.e. public DNS for hold01.atcr.io must be cut over BEFORE the
+    # certificate can issue. Expect the listener to sit Programmed=False until
+    # then.
+    - name: hold01atcrio
+      hostname: "hold01.atcr.io"
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - atproto
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: hold01-atcr-io-tls

@@ -1,0 +1,54 @@
+# Ingress for hold01.atcr.io.
+#
+# Kept as its own file rather than folded into 10-httproute.yaml: that file is
+# pds-tls-route, which is PDS-specific (jarrett.app / pds.j5t.io) and moves on
+# the PDS's lifecycle. hold01 is a separate application on a separate domain,
+# so a 30- file groups it with 30-hold01.yaml and lets the whole service be
+# added, moved or removed as one unit without touching the PDS's route.
+#
+# PREREQUISITE — the Gateway must have a listener whose hostname matches
+# hold01.atcr.io. As of this commit, jarrett-net listens on *.jarrett.net,
+# jarrett.net, *.jarrett.app, jarrett.app, evanjarrett.com, j5t.io and
+# *.j5t.io. Nothing there intersects atcr.io, so without the accompanying
+# listener added to namespaces/gateway/10-gateway.yaml this route attaches to
+# nothing and reports "no matching listener hostname" in its status. It does
+# NOT error loudly; traffic simply never arrives.
+#
+# No ReferenceGrant is needed: this HTTPRoute and the hold01 Service are both
+# in the atproto namespace, so the backendRef is same-namespace. The existing
+# 10-referencegrant.yaml (gateway-namespace HTTPRoutes -> any atproto Service)
+# is unrelated and already unnamed/namespace-wide.
+#
+# No NetworkPolicy is needed either: 10-network-policy.yaml is default-deny
+# with allow-gateway-ingress and allow-dns-egress, all three using
+# podSelector: {} — they already apply to every pod in the namespace,
+# including hold01. Ingress from the gateway namespace is permitted, and
+# egress permits DNS plus TCP 80/443 to everything outside RFC1918, which
+# covers S3 at blobs.atcr.io, plc.directory, the bsky relays, user PDSes,
+# atcr.io and the avatar fetch from imgs.blue.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hold01-tls-route
+  namespace: atproto
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - hold01.atcr.io
+  rules:
+    - backendRefs:
+        - name: hold01
+          namespace: atproto
+          port: 8080
+      # Disable the request timeout. The hold serves two long-lived WebSocket
+      # endpoints — com.atproto.sync.subscribeRepos (the firehose, which relays
+      # hold open indefinitely and which can sit silent for hours on a hold
+      # with ~4 users) and the scanner job stream. Envoy does not apply the
+      # route timeout to successfully upgraded streams, but it does apply
+      # stream_idle_timeout, so see the note in the report about that knob if
+      # connections still drop at a fixed interval.
+      timeouts:
+        request: 0s

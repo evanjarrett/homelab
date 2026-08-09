@@ -1,0 +1,369 @@
+# hold01 — ATCR hold service (OCI blob storage + embedded ATProto PDS).
+#
+# Lifted from a single Docker container on an UpCloud VPS. This is an IDENTITY
+# migration: the hold's DID is did:web:hold01.atcr.io, derived purely from
+# server.public_url below. Change that string and the DID silently changes,
+# orphaning every io.atcr.manifest record in every user's PDS that names this
+# hold. Treat server.public_url as immutable.
+#
+# Single-writer by construction: repo writes serialize on one in-process mutex
+# and the carstore/records index is a single SQLite file. Two pods sharing the
+# volume corrupts it, so replicas is pinned at 1 and strategy is Recreate.
+# Never RollingUpdate.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hold01-config
+  namespace: atproto
+data:
+  # Mounted at /config.yaml via subPath. Because it is a subPath mount, kubelet
+  # does NOT propagate ConfigMap updates into the running container, and a
+  # ConfigMap change alone does not roll a Deployment. Bump the
+  # atcr.io/config-revision annotation on the pod template below whenever you
+  # edit this file, or the change lands in the API server and nowhere else.
+  config.yaml: |
+    version: "0.1"
+    log_level: info
+
+    storage:
+      # UpCloud's Chicago zone. The VPS ran with AWS_REGION=us-ch1 in its
+      # .env (a dropped "i") which overrode the YAML's us-chi1 via
+      # BindEnv("storage.region", "AWS_REGION"). Harmless: the sibling hold
+      # signs with us-chi1 against the same bucket on the same backend and
+      # both work, so this endpoint does not validate the SigV4 region scope
+      # — it only feeds config.WithRegion(). Using the correct zone name
+      # rather than carrying the typo forward.
+      region: us-chi1
+      bucket: atcr
+      endpoint: https://blobs.atcr.io
+      # access_key / secret_key are deliberately absent. pkg/hold/config.go
+      # binds storage.access_key -> AWS_ACCESS_KEY_ID and storage.secret_key ->
+      # AWS_SECRET_ACCESS_KEY, injected from the hold01-secrets Secret.
+
+    server:
+      addr: ":8080"
+      # THIS VALUE IS THE DID. did:web:hold01.atcr.io is derived from it and
+      # from nothing else (database.did_method defaults to "web"). Do not edit.
+      public_url: https://hold01.atcr.io
+      public: false
+      test_mode: false
+      read_timeout: 5m0s
+      write_timeout: 5m0s
+      # The captain record already carries this successor (set 2026-07-31);
+      # it lives in the carstore, not in config. Stated explicitly so the
+      # value is self-documenting and survives a carstore restore that
+      # somehow lacks it. Safe to repeat: server.go only writes when the
+      # config value is non-empty AND differs from the record, so a matching
+      # value is a no-op rather than a spurious commit. Removing this line
+      # does NOT clear the record.
+      successor: did:plc:wnbpdx4bn5uts5yd2o2g3gnm
+      # server.relay_endpoints is intentionally omitted so the built-in
+      # defaults (relay1.us-east / relay1.us-west .bsky.network) apply. The old
+      # VPS config carried "relay_endpoint: \"\"" (singular), which is not a
+      # field on any config struct and was therefore a silent no-op; the live
+      # instance has always run on the defaults. Writing "relay_endpoints: []"
+      # here would be a behaviour CHANGE, not a faithful copy.
+      # server.appview_did is likewise omitted; it defaults to did:web:atcr.io.
+
+    registration:
+      owner_did: did:plc:pddp4xt5lgnv2qsegbzzs4xg
+      allow_all_crew: true
+      enable_bluesky_posts: true
+      profile_avatar_url: https://imgs.blue/evan.jarrett.net/1TpTOdtS60GdJWBYEqtK22y688jajbQ9a5kbYRFtwuqrkBAE
+      # Cosmetic, surfaced on the captain record only. Genuinely a different
+      # field from storage.region above.
+      #
+      # CAVEAT: LoadConfig() overwrites this unconditionally after parsing —
+      # cloud metadata if 169.254.169.254 answers, otherwise storage.region.
+      # On the UpCloud VPS the metadata service answered "us-chi1". In the
+      # cluster it will not answer, so the effective value becomes "us-ch1"
+      # and the captain record's region flips on first boot. Harmless, but it
+      # is a visible change; the value below is documentation, not control.
+      region: us-chi1
+
+    database:
+      path: /var/lib/atcr-hold
+      # Empty derives to {path}/signing.key.
+      key_path: ""
+
+    admin:
+      enabled: true
+
+    # There is deliberately NO `gc:` section here. Absent means gc.enabled
+    # defaults to false (pkg/hold/config.go setHoldDefaults), which is
+    # REQUIRED: hold01 shares the S3 bucket "atcr" with another hold, and
+    # blob digests are content-addressed and therefore shared across holds.
+    # hold01's referenced set only covers its own users, so a GC run here
+    # would delete blobs the other hold is actively serving. Do not add a
+    # gc: section, and do not set the legacy GC_ENABLED env var, which is
+    # still bound as a backward-compat override.
+
+    quota:
+      # tiers is a LIST of {name, quota, scan_on_push}, not a map keyed by tier
+      # name — see quota.Config in pkg/hold/quota/config.go. Position in the
+      # list determines rank (lowest to highest). A map here silently fails to
+      # decode into []TierConfig and you get no quota enforcement at all.
+      tiers:
+        - name: deckhand
+          quota: 5GB
+        - name: bosun
+          quota: 50GB
+        - name: quartermaster
+          quota: 100GB
+      defaults:
+        new_crew_tier: deckhand
+
+    scanner:
+      # Empty disables the scanner WebSocket dispatch entirely.
+      secret: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hold01
+  namespace: atproto
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: hold01
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hold01
+  namespace: atproto
+spec:
+  # Recreate, never RollingUpdate: a rolling update briefly runs two pods
+  # against the same RWO volume, and two processes on one SQLite carstore
+  # corrupts it. Recreate also guarantees the old pod's DB handles are closed
+  # before the new pod opens them.
+  strategy:
+    type: Recreate
+  # DELIBERATELY 0 UNTIL THE DATA IS RESTORED.
+  #
+  # Starting this pod against an empty volume does not fail — it bootstraps.
+  # With registration.owner_did set and no carstore present, the hold calls
+  # InitNewActor, writes a brand-new captain record, posts "online" to
+  # Bluesky, and requestCrawls the relays, all under the REAL
+  # did:web:hold01.atcr.io. The only log line is "Initialized empty repo".
+  # The Bluesky post cannot be retracted.
+  #
+  # Flip to 1 only after db.sqlite3 (+ -wal/-shm) and signing.key are in the
+  # PVC and checksummed. At 0, Flux can still reconcile the PVC and let
+  # cert-manager issue the listener cert.
+  replicas: 0
+  selector:
+    matchLabels:
+      app: hold01
+  template:
+    metadata:
+      labels:
+        app: hold01
+      annotations:
+        # Bump this whenever hold01-config changes; the ConfigMap is mounted
+        # with subPath, so nothing else will restart the pod.
+        atcr.io/config-revision: "1"
+    spec:
+      # Pin to v2-data-engine-capable nodes, same as the PDS. This label spans
+      # BOTH architectures (3 amd64 control-plane + 2 arm64 RK1); the pinned
+      # image is a multi-arch OCI index covering both, so no arch selector is
+      # needed. If the image is ever replaced with a single-arch build, add a
+      # kubernetes.io/arch selector or the pod will land on the wrong node and
+      # CrashLoop with "exec format error".
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      # 60s: shutdown closes four DB handles (carstore, records, events,
+      # scan broadcaster) after a 10s graceful HTTP drain. SIGKILL mid-write
+      # risks a dirty WAL on the carstore.
+      terminationGracePeriodSeconds: 60
+      # The hold never talks to the Kubernetes API.
+      automountServiceAccountToken: false
+      securityContext:
+        # uid 1000, not 0. The atproto namespace enforces Pod Security
+        # Standards "restricted", which rejects root outright — uid 0 is not
+        # available here without relabelling the namespace. It is also safe:
+        # the binary is static Go, binds 8080 (unprivileged), performs no
+        # os/user lookups (which would fail on a FROM scratch image with no
+        # /etc/passwd), and writes nothing outside database.path.
+        #
+        # fsGroup 1000 makes the kubelet recursively set group ownership on
+        # the volume at mount time and widen group bits to mirror owner bits,
+        # so an inherited root-owned 0600 signing.key becomes root:1000 0660
+        # and stays readable. Do not rely on that alone: chown -R 1000:1000
+        # the copied data during migration. The setgid bit fsGroup sets on the
+        # directory also makes SQLite's new -wal/-shm files land in group 1000.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # Synced into this ns by the HSM operator (see
+      # infrastructure/hsm-secrets-operator/00-release.yaml).
+      imagePullSecrets:
+        - name: atcr-login
+      containers:
+        - name: hold01
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          # OCI index pinned by digest. Covers both architectures spanned by
+          # the storage.longhorn-v2 node set (3 amd64 control-plane + 2 arm64
+          # RK1):
+          #   linux/amd64  sha256:828f08a4858f38087e0593c782aa68eb833e585935c2ffc5b739357b24f8f611
+          #   linux/arm64  sha256:216adff2e5d6dad9f71aa25a0b885d5c7d14710da78bbdb45a51f6f8c79c0008
+          # Built from atcr.io repo commit 629a7bc. The tag is retained
+          # alongside the digest purely for human readability — the digest is
+          # what resolves.
+          #
+          # Not a bootstrap loop: images pushed to atcr.io land on the default
+          # hold (seamark, did:plc:wnbpdx4bn5uts5yd2o2g3gnm), not on hold01.
+          # Pulling this image needs the appview + seamark, never hold01
+          # itself. It does couple pod start to atcr.io being up, which is the
+          # same coupling already accepted in llm/, agent/ and loom-system/.
+          image: atcr.io/seamark.cr/hold:629a7bc@sha256:39bbb026fa7aa88856060c5b205146250df7193e9854997ce4ba03b51aaf34b5
+          # Digest-pinned, so the image can never change under us and there is
+          # no reason to re-pull on every start.
+          imagePullPolicy: IfNotPresent
+          args:
+            - serve
+            - --config
+            - /config.yaml
+          env:
+            # Viper maps HOLD_ + the YAML path with _ separators, and also
+            # binds the standard AWS names. The old docker-compose used
+            # HOLD_PUBLIC_URL / HOLD_OWNER / HOLD_BLUESKY_POSTS_ENABLED, none
+            # of which are real config paths — they were silent no-ops. Do not
+            # reintroduce them. Everything except the two S3 credentials lives
+            # in the mounted YAML.
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hold01-secrets
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hold01-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/atcr-hold
+          # All initialisation (DID load, records-index rebuild over ~64,500
+          # blocks, the 2s cloud-metadata probe that will always time out in
+          # cluster, captain/profile bootstrap) completes before the HTTP
+          # listener binds. So a 200 from /xrpc/_health is genuine readiness,
+          # and a connection refused during boot is expected rather than a
+          # fault. The startupProbe exists to hold liveness off for that
+          # window: 10s + 60 * 10s = up to ~10 minutes before restart.
+          startupProbe:
+            httpGet:
+              path: /xrpc/_health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /xrpc/_health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /xrpc/_health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Idle legacy service, ~4 users. The only real work is the SQLite
+          # records-index rebuild on boot, which is CPU-bursty and short; the
+          # 500m limit lets it burst without throttling the rebuild into the
+          # startupProbe window. Memory headroom is for the carstore page
+          # cache.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: hold01-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: hold01-storage-claim
+---
+apiVersion: longhorn.io/v1beta2
+kind: Volume
+metadata:
+  name: pvc-hold01
+  namespace: longhorn-system
+  labels:
+    app: hold01
+spec:
+  # 5Gi. Live footprint is ~92 MB (db.sqlite3 + -wal + -shm + signing.key).
+  size: "5368709120"
+  numberOfReplicas: 3
+  frontend: blockdev
+  accessMode: rwo
+  dataLocality: disabled
+  dataEngine: v2
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-hold01
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  # Retain, not Delete. This volume holds signing.key — the hold's ATProto
+  # signing identity — and the carstore, which is the ONLY copy of the
+  # captain, crew, layer, stats, scan and image.config records. None of it is
+  # reconstructible from S3 or from anyone's PDS. Deleting the PVC must not
+  # delete the data.
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: longhorn
+  csi:
+    driver: driver.longhorn.io
+    volumeHandle: pvc-hold01
+    # ext4 on a Longhorn block device: real fcntl/POSIX locking, which SQLite
+    # requires. NFS must never be used for this volume.
+    fsType: ext4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hold01-storage-claim
+  namespace: atproto
+spec:
+  storageClassName: longhorn
+  volumeName: pvc-hold01
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
