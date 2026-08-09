@@ -69,7 +69,15 @@ data:
     registration:
       owner_did: did:plc:pddp4xt5lgnv2qsegbzzs4xg
       allow_all_crew: true
-      enable_bluesky_posts: true
+      # Disabled 2026-08-09. hold01 is a legacy read-only endpoint kept alive
+      # for four dormant users, so online/offline chatter has no audience.
+      #
+      # Two consequences worth knowing. This value is force-synced into the
+      # captain record on every boot, so flipping it rewrites that record and
+      # advances the repo rev. And the last status post will read "offline" —
+      # the outgoing pod still posts it on SIGTERM, while the new pod no
+      # longer posts "online" on startup.
+      enable_bluesky_posts: false
       profile_avatar_url: https://imgs.blue/evan.jarrett.net/1TpTOdtS60GdJWBYEqtK22y688jajbQ9a5kbYRFtwuqrkBAE
       # Cosmetic, surfaced on the captain record only. Genuinely a different
       # field from storage.region above.
@@ -168,7 +176,7 @@ spec:
       annotations:
         # Bump this whenever hold01-config changes; the ConfigMap is mounted
         # with subPath, so nothing else will restart the pod.
-        atcr.io/config-revision: "1"
+        atcr.io/config-revision: "2"
     spec:
       # Pin to v2-data-engine-capable nodes, same as the PDS. This label spans
       # BOTH architectures (3 amd64 control-plane + 2 arm64 RK1); the pinned
