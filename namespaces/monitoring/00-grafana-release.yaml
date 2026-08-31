@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: grafana-community-helmrepo
         namespace: flux-system
-      version: 12.11.1
+      version: 12.11.2
   interval: 2h
   timeout: 10m
   install:
