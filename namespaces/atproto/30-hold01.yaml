@@ -227,31 +227,38 @@ spec:
           # OCI index pinned by digest. Covers both architectures spanned by
           # the storage.longhorn-v2 node set (3 amd64 control-plane + 2 arm64
           # RK1):
-          #   linux/amd64  sha256:acf090f006cf8fe34cb1fd0fe181936add77ce8cc1fe2b8867553d0036ec6417
-          #   linux/arm64  sha256:04718940bf65b98446627ceee2b79773caa0f3081ff0aa115d4a83c8c6c05907
-          # Built from atcr.io repo commit fd8e4b0. The tag is retained
+          #   linux/amd64  sha256:e47a85d16fab1338113553bf8097edc100b457f95882b4300c8211728fc13f62
+          #   linux/arm64  sha256:6e9745bdbec769e9076fbedfcda07ba997e1303f888afa76b16b065cd71867ca
+          # Built from atcr.io repo commit 2a58cce. The tag is retained
           # alongside the digest purely for human readability — the digest is
           # what resolves.
           #
-          # fd8e4b0 is 84 commits past the previous 05b856b image. It retains
-          # that image's firehose-backfill and scan-broadcaster panic fixes,
-          # which still matter here: hold01's relays are behind after the
-          # migration, so every reconnect spawns a backfill goroutine.
-          # New in this pin: Go 1.26.7 and a full dependency refresh (indigo,
-          # go-libsql, aws-sdk), plus the carstore now reads blocks through
-          # go-block-format directly, the archived go-libipfs having been
-          # dropped.
+          # Carried forward from the 05b856b image: the firehose-backfill and
+          # scan-broadcaster panic fixes, which still matter here because
+          # hold01's relays are behind after the migration, so every reconnect
+          # spawns a backfill goroutine. Added since: Go 1.26.7 and a full
+          # dependency refresh (indigo, go-libsql, aws-sdk), plus the carstore
+          # now reading blocks through go-block-format directly, the archived
+          # go-libipfs having been dropped.
           #
-          # It also carries 95d4f7c, which stops an unreachable predecessor
-          # hold from losing its blobs. That fix is INERT here (hold01 has no
-          # gc: section, see above) but it is the one seamark needs.
+          # 2a58cce adds the reason for this bump. 95d4f7c made the predecessor
+          # check fail open so an unreachable predecessor could not lose its
+          # blobs, but the boolean it flipped also decided manifest ownership,
+          # so hold01 adopted five stale dev manifests naming
+          # did:web:localhost%3A8080 and did:web:172.28.0.3:8080 and reported
+          # all ten of their layers as missing layer records. Ownership is now a
+          # three-state value: an unreachable hold is claimUnknown — don't
+          # delete, but do not adopt. Blob GC is still off here, so what this
+          # actually fixes on hold01 is the admin orphan scan, and it stops a
+          # Reconcile from writing io.atcr.hold.layer records claiming another
+          # hold's content.
           #
           # Not a bootstrap loop: images pushed to atcr.io land on the default
           # hold (seamark, did:plc:wnbpdx4bn5uts5yd2o2g3gnm), not on hold01.
           # Pulling this image needs the appview + seamark, never hold01
           # itself. It does couple pod start to atcr.io being up, which is the
           # same coupling already accepted in llm/, agent/ and loom-system/.
-          image: atcr.io/seamark.cr/hold:fd8e4b0@sha256:b561d4d944ca207cebe7da6288fd9a10c70a7a87f8d273b94bf4cdc01a42c1f9
+          image: atcr.io/seamark.cr/hold:2a58cce@sha256:f2eea327f56d59c4cfaf87036f29fa633fd7f3861f1f6304e359735a30be2245
           # Digest-pinned, so the image can never change under us and there is
           # no reason to re-pull on every start.
           imagePullPolicy: IfNotPresent
