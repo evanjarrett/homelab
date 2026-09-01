@@ -227,25 +227,31 @@ spec:
           # OCI index pinned by digest. Covers both architectures spanned by
           # the storage.longhorn-v2 node set (3 amd64 control-plane + 2 arm64
           # RK1):
-          #   linux/amd64  sha256:66f1669094f7b2d20426c794715c134793d9158673eb37b4e20280ef210b290f
-          #   linux/arm64  sha256:6618bfc319e0a889640de4fa07927b2cd53f8bdb54d871ef78293b9c94e9f080
-          # Built from atcr.io repo commit 05b856b. The tag is retained
+          #   linux/amd64  sha256:acf090f006cf8fe34cb1fd0fe181936add77ce8cc1fe2b8867553d0036ec6417
+          #   linux/arm64  sha256:04718940bf65b98446627ceee2b79773caa0f3081ff0aa115d4a83c8c6c05907
+          # Built from atcr.io repo commit fd8e4b0. The tag is retained
           # alongside the digest purely for human readability — the digest is
           # what resolves.
           #
-          # 05b856b carries two crash fixes over the previous 629a7bc image:
-          # a firehose backfill panic ("send on closed channel") that any relay
-          # reconnecting with a stale cursor and then dropping could trigger,
-          # and two equivalent panics in the scan broadcaster. The firehose one
-          # matters here: hold01's relays are behind after the migration, so
-          # every reconnect spawns a backfill goroutine and is exposed.
+          # fd8e4b0 is 84 commits past the previous 05b856b image. It retains
+          # that image's firehose-backfill and scan-broadcaster panic fixes,
+          # which still matter here: hold01's relays are behind after the
+          # migration, so every reconnect spawns a backfill goroutine.
+          # New in this pin: Go 1.26.7 and a full dependency refresh (indigo,
+          # go-libsql, aws-sdk), plus the carstore now reads blocks through
+          # go-block-format directly, the archived go-libipfs having been
+          # dropped.
+          #
+          # It also carries 95d4f7c, which stops an unreachable predecessor
+          # hold from losing its blobs. That fix is INERT here (hold01 has no
+          # gc: section, see above) but it is the one seamark needs.
           #
           # Not a bootstrap loop: images pushed to atcr.io land on the default
           # hold (seamark, did:plc:wnbpdx4bn5uts5yd2o2g3gnm), not on hold01.
           # Pulling this image needs the appview + seamark, never hold01
           # itself. It does couple pod start to atcr.io being up, which is the
           # same coupling already accepted in llm/, agent/ and loom-system/.
-          image: atcr.io/seamark.cr/hold:05b856b@sha256:e5ba5e77566c2683954f6101486669e2c5ff49d893ee08f9d253866233c7bef0
+          image: atcr.io/seamark.cr/hold:fd8e4b0@sha256:b561d4d944ca207cebe7da6288fd9a10c70a7a87f8d273b94bf4cdc01a42c1f9
           # Digest-pinned, so the image can never change under us and there is
           # no reason to re-pull on every start.
           imagePullPolicy: IfNotPresent
