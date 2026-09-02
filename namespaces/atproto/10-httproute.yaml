@@ -8,6 +8,26 @@ spec:
     - name: jarrett-net
       namespace: gateway
   hostnames:
+    # The wildcard is what makes handle resolution work without a per-account
+    # DNS record. A resolver verifying <handle>.jarrett.app fetches
+    # https://<handle>.jarrett.app/.well-known/atproto-did; the PDS answers that
+    # for any handle it hosts, keyed off the Host header, so every account is
+    # covered by this one entry. Without it those subdomains hit no route and
+    # accounts can only be verified via a hand-made _atproto TXT record each.
+    #
+    # Requires a *.jarrett.app record in the Cloudflare zone -- the gateway
+    # listener (jarrettapp) and its cert (jarrett-app-full-tls, SAN
+    # *.jarrett.app + jarrett.app) already exist.
+    #
+    # Nothing else claims a jarrett.app subdomain today. If something does
+    # later, give it its own HTTPRoute with the exact hostname: Gateway API
+    # prefers the more specific hostname, so an exact match wins over this
+    # wildcard rather than conflicting with it.
+    #
+    # The pds-age-assurance EnvoyFilter matches only the "jarrett.app:443"
+    # vhost and deliberately does not cover this one -- XRPC is served on the
+    # apex, the wildcard vhost only answers /.well-known/atproto-did.
+    - "*.jarrett.app"
     - jarrett.app
     - pds.j5t.io
   rules:
