@@ -12,7 +12,7 @@ spec:
         kind: HelmRepository
         name: prometheus-community-helmrepo
         namespace: flux-system
-      version: 4.56.1
+      version: 4.56.3
   interval: 2h
   install:
     crds: Create
@@ -58,7 +58,7 @@ spec:
         kind: HelmRepository
         name: prometheus-community-helmrepo
         namespace: flux-system
-      version: 8.4.0
+      version: 8.4.1
   interval: 2h
   install:
     crds: Create
