@@ -129,7 +129,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: watchdog
-              image: alpine/k8s:1.36.2
+              image: alpine/k8s:1.37.0
               command: ["/bin/sh", "/scripts/watchdog.sh"]
               env:
                 - name: HOME
