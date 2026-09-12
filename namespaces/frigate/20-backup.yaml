@@ -208,7 +208,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: orchestrate
-              image: alpine/k8s:1.36.2
+              image: alpine/k8s:1.37.0
               command: ["/bin/sh", "/scripts/orchestrate.sh"]
               volumeMounts:
                 - { name: scripts, mountPath: /scripts }
