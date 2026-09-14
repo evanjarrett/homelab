@@ -135,6 +135,12 @@ spec:
         memory: 1Gi
     remoteWrite:
       - url: http://victoria-metrics-server.monitoring.svc.cluster.local:8428/api/v1/write
+    # Cap the remote-write persistent queue below the 2Gi tmpData PVC. Uncapped,
+    # a backlog filled all 3 PVCs on 2026-08-26 and vmagent crashlooped on
+    # startup ("no space left on device") for 19 days. With a cap it drops the
+    # oldest queued data instead of dying.
+    extraArgs:
+      remoteWrite.maxDiskUsagePerURL: 1536MiB
     config:
       global:
         scrape_interval: 30s
