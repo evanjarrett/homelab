@@ -72,12 +72,6 @@
   - Implement vulnerability scanning in CI/CD
   - Consider using distroless base images
 
-### Network Architecture
-- [ ] **Cloudflare Tunnels for WireGuard**
-  - Investigate tunneling WireGuard management interface
-  - Completely hide home IP for all services
-  - Compare with current split-access approach
-
 ---
 
 ## Implementation Notes
