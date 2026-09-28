@@ -29,9 +29,10 @@
 # nightly-backup is back on group `default` (every volume carries it) but with
 # concurrency 1: v2 instance managers get liveness-killed under bursty load, so
 # volumes are backed up strictly one at a time.
-# snapshot-delete stays DISARMED: its first run would bulk-purge ~300 stale
-# system-backup-* snapshots at once, which is exactly the burst that kills v2
-# instance managers. Re-arm it only after those are cleaned up volume-by-volume.
+# snapshot-delete was held back until the ~290 stale system-backup-* snapshots
+# (06-28 -> 07-23) were purged by hand, one snapshot at a time (2026-09-28); a
+# first run would otherwise have bulk-purged them all at once. Now re-armed with
+# concurrency 1, at 05:00 so it doesn't overlap a long one-at-a-time backup run.
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -73,11 +74,11 @@ metadata:
   name: snapshot-delete
   namespace: longhorn-system
 spec:
-  cron: "0 3 * * *"  # Daily at 3 AM (after backups)
+  cron: "0 5 * * *"  # Daily at 5 AM (well after the serial 2 AM backup run)
   task: snapshot-delete
   retain: 10
-  concurrency: 3
+  concurrency: 1  # one volume at a time — bursts kill v2 instance managers
   groups:
-    - none  # still disarmed — re-arm after stale snapshots are purged (see header)
+    - default
   labels:
     app: longhorn-cleanup
