@@ -21,6 +21,17 @@
 # but set parameters.volume-backup-policy=disabled so it NO LONGER snapshots volumes.
 # The 20-ro-mount-watchdog.yaml CronJob is the safety net for any residual wedge
 # (node loss, manual snapshot, etc.).
+#
+# RE-ARMED 2026-09-28 — #13331 is fixed in 1.12.1 (backport #13332), and as of
+# 2026-09-27 every v2 instance manager AND volume actually runs 1.12.1 (the Aug
+# upgrade had left them on 1.12.0). Manual one-at-a-time backups of 7 volumes on
+# 1.12.1 (incl. gjw-4r3-attached ones) completed with no read-only remounts.
+# nightly-backup is back on group `default` (every volume carries it) but with
+# concurrency 1: v2 instance managers get liveness-killed under bursty load, so
+# volumes are backed up strictly one at a time.
+# snapshot-delete stays DISARMED: its first run would bulk-purge ~300 stale
+# system-backup-* snapshots at once, which is exactly the burst that kills v2
+# instance managers. Re-arm it only after those are cleaned up volume-by-volume.
 apiVersion: longhorn.io/v1beta2
 kind: RecurringJob
 metadata:
@@ -30,9 +41,9 @@ spec:
   cron: "0 2 * * *"  # Daily at 2 AM
   task: backup
   retain: 10
-  concurrency: 3
+  concurrency: 1  # one volume at a time — bursts kill v2 instance managers
   groups:
-    - none  # was: default — disarmed, see header (#13331)
+    - default  # every volume carries the default group
   labels:
     app: longhorn-backup
 ---
@@ -67,6 +78,6 @@ spec:
   retain: 10
   concurrency: 3
   groups:
-    - none  # was: default — disarmed, see header (#13331)
+    - none  # still disarmed — re-arm after stale snapshots are purged (see header)
   labels:
     app: longhorn-cleanup
