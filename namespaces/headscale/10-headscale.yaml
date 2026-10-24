@@ -158,7 +158,7 @@ spec:
         storage.longhorn-v2: "true"
       containers:
         - name: headscale
-          image: ghcr.io/juanfont/headscale:v0.29.5
+          image: ghcr.io/juanfont/headscale:v0.29.6
           imagePullPolicy: IfNotPresent
           args: ["serve"]
           ports:
