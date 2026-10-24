@@ -132,13 +132,17 @@ spec:
             runAsNonRoot: true
             capabilities:
               drop: ["ALL"]
+          # Writes to /data land in the page cache, which counts against this
+          # limit. Longhorn V2 doesn't flush it fast enough to stay under a
+          # small limit, so a 128Mi limit stalled copies at ~124 MB and then
+          # OOM-killed the container. 1Gi covers a full ~520 MB copy.
           resources:
             requests:
               cpu: 5m
               memory: 16Mi
             limits:
               cpu: 500m
-              memory: 128Mi
+              memory: 1Gi
           volumeMounts:
             - name: data
               mountPath: /data
