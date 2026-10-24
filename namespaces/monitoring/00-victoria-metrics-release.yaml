@@ -6,7 +6,7 @@ metadata:
   labels:
     app: victoria-metrics
 spec:
-  size: "8589934592"
+  size: "53687091200"
   numberOfReplicas: 3
   frontend: blockdev
   accessMode: rwo
@@ -22,7 +22,7 @@ metadata:
   name: victoria-metrics-data
 spec:
   capacity:
-    storage: 8Gi
+    storage: 50Gi
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
@@ -44,7 +44,7 @@ spec:
   volumeName: victoria-metrics-data
   resources:
     requests:
-      storage: 8Gi
+      storage: 50Gi
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
