@@ -13,6 +13,10 @@ spec:
   accessMode: rwo
   dataLocality: disabled
   dataEngine: v2
+  # Must match the Longhorn instance-manager image. Left empty, Longhorn treats a
+  # detach as an engine upgrade and blanks the replica images, so the volume never
+  # re-attaches. Renovate bumps this together with the Longhorn chart.
+  image: docker.io/longhornio/longhorn-instance-manager:v1.12.1
 ---
 apiVersion: v1
 kind: PersistentVolume

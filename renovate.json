@@ -39,6 +39,12 @@
       "groupName": "Container images"
     },
     {
+      "description": "Longhorn chart and the instance-manager image pinned in static V2 Volume CRs must move together, and Longhorn upgrades need a manual path check (V2 volumes may need detaching), so never automerge.",
+      "matchPackageNames": ["longhorn", "docker.io/longhornio/**", "longhornio/**"],
+      "groupName": "Longhorn",
+      "automerge": false
+    },
+    {
       "description": "Don't automerge major updates",
       "matchUpdateTypes": ["major"],
       "automerge": false

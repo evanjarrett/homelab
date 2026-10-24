@@ -15,6 +15,10 @@ spec:
   accessMode: rwo
   dataLocality: disabled
   dataEngine: v2
+  # Must match the Longhorn instance-manager image. Left empty, Longhorn treats a
+  # detach as an engine upgrade and blanks the replica images, so the volume never
+  # re-attaches. Renovate bumps this together with the Longhorn chart.
+  image: docker.io/longhornio/longhorn-instance-manager:v1.12.1
 ---
 apiVersion: longhorn.io/v1beta2
 kind: Volume
@@ -30,6 +34,10 @@ spec:
   accessMode: rwo
   dataLocality: disabled
   dataEngine: v2
+  # Must match the Longhorn instance-manager image. Left empty, Longhorn treats a
+  # detach as an engine upgrade and blanks the replica images, so the volume never
+  # re-attaches. Renovate bumps this together with the Longhorn chart.
+  image: docker.io/longhornio/longhorn-instance-manager:v1.12.1
 ---
 # Static PVs are declared here (not Longhorn-UI-created) so they DON'T carry an
 # ownerReference back to the Volume CR. A UI-created PV is GC'd when its Volume CR
