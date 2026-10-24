@@ -54,6 +54,8 @@ spec:
         fsGroup: 1000            # loader can write the Longhorn volume
         seccompProfile:
           type: RuntimeDefault
+      imagePullSecrets:
+        - name: atcr-login
       containers:
         - name: precinct-atlas
           # OCI index (linux/amd64), built from voting-guide commit a9bdffc.
