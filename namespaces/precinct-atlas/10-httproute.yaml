@@ -1,0 +1,19 @@
+# Exposed at https://precinct.j5t.io via the jarrett-net gateway's *.j5t.io
+# listener (TLS terminate). *.j5t.io is split-horizon/internal-only DNS
+# (wildcard A -> 192.168.3.1), so no DNS change is needed. The app has no login.
+# Same-namespace backend, so no ReferenceGrant is needed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: precinct-atlas-tls-route
+  namespace: precinct-atlas
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - precinct.j5t.io
+  rules:
+    - backendRefs:
+        - name: precinct-atlas
+          port: 8080

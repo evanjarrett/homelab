@@ -1,0 +1,159 @@
+# precinct-atlas — precinct/household map for local primary canvassing.
+# Single Node 24 server (no deps) serving a read-only SQLite database.
+#
+# The image is code only: the database (voters.db, ~520 MB, private voter data)
+# is never baked into the image or committed here. It is built on the
+# workstation and copied into the `precinct-atlas-data` PVC through the
+# `loader` sidecar (see the PR / commit message for the copy commands). The
+# server re-opens /data/voters.db when its inode changes (checked every 30 s),
+# so an update is: copy to a temp name, then `mv` over voters.db — no restart.
+#
+# Until a database has been loaded the `precinct-atlas` container crash-loops
+# (it opens the DB at startup); the `loader` container stays up regardless, so
+# the first copy can be done into the same pod.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: precinct-atlas-data
+  namespace: precinct-atlas
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 2Gi             # ~520 MB DB + room for a temp copy during updates
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: precinct-atlas
+  namespace: precinct-atlas
+spec:
+  replicas: 1
+  # RWO volume -> never run two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: precinct-atlas
+  template:
+    metadata:
+      labels:
+        app: precinct-atlas
+    spec:
+      # v2 (SPDK) volumes only attach where a v2 instance-manager runs, and the
+      # image is published for linux/amd64 only.
+      nodeSelector:
+        storage.longhorn-v2: "true"
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000          # `node` user in node:24-alpine
+        runAsGroup: 1000
+        fsGroup: 1000            # loader can write the Longhorn volume
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: precinct-atlas
+          # OCI index (linux/amd64), built from voting-guide commit a9bdffc.
+          # Public image, so no imagePullSecret.
+          image: atcr.io/evan.jarrett.net/precinct-atlas:a9bdffc@sha256:6d592b11447f7d9ca7248314cb1c8e46b2de60799cf459368aaa7b6b218c5aba
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: DB_PATH
+              value: /data/voters.db
+            - name: PORT
+              value: "8080"
+            # Optional address prefix for the "My street" button. Kept out of
+            # this public repo: HSM-synced `precinct-atlas` secret (see
+            # infrastructure/hsm-secrets-operator/00-release.yaml). optional, so
+            # the pod starts fine before the secret/key exists.
+            - name: HOME_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: precinct-atlas
+                  key: HOME_ADDR
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24   # ~2 min to open the DB and build precinct GeoJSON
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            # Mount the directory, not the file: a single-file mount would keep
+            # pointing at the old inode after an update.
+            - name: data
+              mountPath: /data
+              readOnly: true
+        # ----------------------------------------------------------------------
+        # Idle helper with the data volume mounted read-write, so voters.db can
+        # be streamed in with `kubectl exec -i` / `kubectl cp` without scaling
+        # the app down or giving the app container write access. Reuses the app
+        # image (busybox sh/tar/mv/sleep are all it needs).
+        - name: loader
+          image: atcr.io/evan.jarrett.net/precinct-atlas:a9bdffc@sha256:6d592b11447f7d9ca7248314cb1c8e46b2de60799cf459368aaa7b6b218c5aba
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - trap 'exit 0' TERM INT; while :; do sleep 3600 & wait $!; done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: precinct-atlas-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: precinct-atlas
+  namespace: precinct-atlas
+spec:
+  selector:
+    app: precinct-atlas
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
