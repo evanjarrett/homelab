@@ -101,3 +101,8 @@ spec:
         - name: headscale
           namespace: headscale
           syncInterval: 300
+        # precinct-atlas: optional HOME_ADDR ("My street" button). Value is
+        # set out of band with `kubectl hsm create precinct-atlas --interactive`.
+        - name: precinct-atlas
+          namespace: precinct-atlas
+          syncInterval: 300
