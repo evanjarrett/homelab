@@ -60,7 +60,7 @@ spec:
         - name: precinct-atlas
           # OCI index (linux/amd64), built from voting-guide commit dbe34a5.
           # Public image, so no imagePullSecret.
-          image: atcr.io/evan.jarrett.net/precinct-atlas:dbe34a5@sha256:e9f26cd4fee4cb80432ded916bf578caa0c1289c9b1d1752ed14b01983a5e591
+          image: atcr.io/evan.jarrett.net/precinct-atlas:8a3ab02@sha256:1d6348ce9120d31e21d8097cb65441a68467aa48dfaa9b0b45ed149131f3bbd3
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -121,7 +121,7 @@ spec:
         # the app down or giving the app container write access. Reuses the app
         # image (busybox sh/tar/mv/sleep are all it needs).
         - name: loader
-          image: atcr.io/evan.jarrett.net/precinct-atlas:dbe34a5@sha256:e9f26cd4fee4cb80432ded916bf578caa0c1289c9b1d1752ed14b01983a5e591
+          image: atcr.io/evan.jarrett.net/precinct-atlas:8a3ab02@sha256:1d6348ce9120d31e21d8097cb65441a68467aa48dfaa9b0b45ed149131f3bbd3
           imagePullPolicy: IfNotPresent
           command:
             - sh
