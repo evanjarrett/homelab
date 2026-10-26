@@ -20,15 +20,57 @@ spec:
       retries: 3
   uninstall:
     disableHooks: true
+  # Seed-once config. The chart's copyconfig init container normally does a
+  # plain `cp` of the ConfigMap over /config/config.yml on every start, which
+  # wipes anything saved from the Settings UI. Instead, only copy when the
+  # config under `values.config` actually changed in git (tracked by a hash in
+  # /config/.seed-sha), and back up the active config first. Otherwise the
+  # config on the PVC (including UI edits) is left alone.
+  #
+  # Before changing `config` below, pull the live config back into git so UI
+  # edits aren't lost:
+  #   kubectl -n frigate exec deploy/frigate -- cat /config/config.yml
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: frigate
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: frigate
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: copyconfig
+                        command: ["sh", "-c"]
+                        args:
+                          - |
+                            set -eu
+                            new=$(sha256sum /config.yml | cut -d' ' -f1)
+                            old=$(cat /config/.seed-sha 2>/dev/null || true)
+                            if [ ! -f /config/config.yml ]; then
+                              echo "no config on PVC; seeding from git"
+                            elif [ "$new" != "$old" ]; then
+                              bak=/config/config.yml.$(date +%Y%m%d-%H%M%S).bak
+                              cp -v /config/config.yml "$bak"
+                              echo "git config changed; overwriting active config (backup: $bak)"
+                            else
+                              echo "git config unchanged; keeping active config on PVC"
+                              exit 0
+                            fi
+                            cp -v /config.yml /config/config.yml
+                            echo "$new" > /config/.seed-sha
   values:
     strategy:
       type: Recreate
     image:
-      tag: 0.17.2 # renovate: image=ghcr.io/blakeblackshear/frigate
+      tag: 0.18.2 # renovate: image=ghcr.io/blakeblackshear/frigate
     envFromSecrets:
       - frigate
-    env:
-      OPENAI_BASE_URL: "http://llama-server.llm.svc.cluster.local:8080/v1"
     # Corals are provided solely by the generic-device-plugin via the
     # `devic.es/apex: 2` resource request below, which also grants the cgroup
     # device permission. The previous hostPath/extraVolume mounts of
@@ -48,9 +90,6 @@ spec:
         cpu: 4000m
         gpu.intel.com/i915: 1
         devic.es/apex: 2
-    securityContext:
-      capabilities:
-        add: ["PERFMON"]
     # No hostname pin: floats between the two Coral+i915 nodes
     # (talos-cgy-c3m .161 and talos-gjw-4r3 .162).
     nodeSelector:
@@ -70,7 +109,7 @@ spec:
         skipuninstall: true
         volumeName: pvc-frigate-media
     config: |
-      version: 0.16-0
+      version: 0.18-0
       mqtt:
         enabled: true
         host: mqtt.proxy.svc.cluster.local
@@ -106,20 +145,22 @@ spec:
         enabled: true
         model_size: large
         reindex: false
-      # GenAI (Frigate 0.17): the global genai block is connection-only. Default
-      # description prompts live under the top-level objects.genai block below,
-      # and descriptions are enabled per-camera under cameras.<name>.objects.genai.
-      # Qwen3.6-35B-A3B (multimodal) replaces qwen3-vl-8b; llama-server defaults
-      # thinking off, so descriptions come back fast and non-empty.
+      # GenAI (Frigate 0.18): genai is a map of named providers, each with the
+      # roles it handles. Qwen3.6-35B-A3B (multimodal) on the Strix Halo
+      # llama-server; it defaults thinking off, so descriptions come back fast
+      # and non-empty. Roles are explicit because the default also includes
+      # `embeddings`, which needs a dedicated embedding model this server
+      # doesn't run; semantic search stays on local Jina below.
+      # Description prompts are per-camera (cameras.<name>.objects.genai)
+      # because they reference each camera's zones.
       genai:
-        provider: openai
-        api_key: "not-needed"
-        model: qwen3.6-35b
-      # NOTE: genai description prompts are set PER-CAMERA below (under
-      # cameras.<name>.objects.genai.prompt), NOT here. The 0.16->0.17 config
-      # migration blanks the global objects.genai block whenever the global
-      # genai block is non-empty, so a prompt here would be silently replaced
-      # by Frigate's default. Per-camera objects.genai survives the migration.
+        llama:
+          provider: llamacpp
+          base_url: http://llama-server.llm.svc.cluster.local:8080
+          model: qwen3.6-35b
+          roles:
+            - descriptions
+            - chat
       objects:
         track:
           - person
@@ -156,9 +197,6 @@ spec:
             - 192.168.3.14:8555
       record:
         enabled: true
-        retain:
-          days: 0
-          mode: all
       ffmpeg:
         hwaccel_args: preset-vaapi
         output_args:
@@ -188,13 +226,22 @@ spec:
             filters:
               car:
                 mask:
-                  - 0,0.34,0.538,0.045,0.343,0,0,0
-                  - 0.887,0.001,0.883,0.136,0.944,0.165,0.95,0.008
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (car)
+                    coordinates: 0,0.34,0.538,0.045,0.343,0,0,0
+                  object_mask_2:
+                    friendly_name: Object Mask 2 (car)
+                    coordinates: 0.887,0.001,0.883,0.136,0.944,0.165,0.95,0.008
               waste_bin:
-                mask: 0.538,0.049,0.608,0.08,0.609,0.004,0.542,0.003
+                mask:
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (waste_bin)
+                    coordinates: 0.538,0.049,0.608,0.08,0.609,0.004,0.542,0.003
               package:
                 mask:
-                  0.019,0.328,0.076,0.621,0.093,0.607,0.122,0.707,0.002,0.779,0.001,0.34
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (package)
+                    coordinates: 0.019,0.328,0.076,0.621,0.093,0.607,0.122,0.707,0.002,0.779,0.001,0.34
             genai:
               enabled: true
               prompt: >
@@ -212,7 +259,10 @@ spec:
               required_zones:
                 - driveway-and-street
           motion:
-            mask: 0.141,0,0.143,0.091,0.241,0.05,0.239,0
+            mask:
+              motion_mask_1:
+                friendly_name: Motion Mask 1
+                coordinates: 0.141,0,0.143,0.091,0.241,0.05,0.239,0
           review:
             alerts:
               required_zones: driveway-and-street
@@ -233,7 +283,7 @@ spec:
               - front_house
           zones:
             front_house:
-              coordinates: 
+              coordinates:
                 0,1,1,1,1,0.678,1,0.451,0.941,0.419,0.886,0.369,0.867,0.324,0.864,0.18,0.664,0.153,0.451,0.155,0.205,0.186
               inertia: 5
               loitering_time: 3
@@ -241,17 +291,29 @@ spec:
             filters:
               person:
                 min_area: 10000
-                mask: 0.493,0.315,0.539,0.304,0.54,0.191,0.49,0.193
+                mask:
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (person)
+                    coordinates: 0.493,0.315,0.539,0.304,0.54,0.191,0.49,0.193
               car:
                 min_area: 100000
-                mask: 
-                  0.345,0.997,0.292,0.84,0.235,0.536,0.24,0.512,0.684,0.386,0.686,0.234,0.829,0.222,0.824,0.407,0.997,0.525,0.997,0.003,0.005,0.005,0.003,0.999
+                mask:
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (car)
+                    coordinates: 0.345,0.997,0.292,0.84,0.235,0.536,0.24,0.512,0.684,0.386,0.686,0.234,0.829,0.222,0.824,0.407,0.997,0.525,0.997,0.003,0.005,0.005,0.003,0.999
               waste_bin:
-                mask: 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
+                mask:
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (waste_bin)
+                    coordinates: 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
               package:
                 mask:
-                  - 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
-                  - 0.428,0.52,0.461,0.568,0.463,0.583,0.411,0.599,0.381,0.535
+                  object_mask_1:
+                    friendly_name: Object Mask 1 (package)
+                    coordinates: 0.21,0.186,0.263,0.606,0.424,0.547,0.387,0.165
+                  object_mask_2:
+                    friendly_name: Object Mask 2 (package)
+                    coordinates: 0.428,0.52,0.461,0.568,0.463,0.583,0.411,0.599,0.381,0.535
             genai:
               enabled: true
               prompt: >
@@ -272,6 +334,9 @@ spec:
             alerts:
               required_zones: front_house
           motion:
-            mask: 0.257,0.269,0.347,0.245,0.361,0.382,0.273,0.408
+            mask:
+              motion_mask_1:
+                friendly_name: Motion Mask 1
+                coordinates: 0.257,0.269,0.347,0.245,0.361,0.382,0.273,0.408
             threshold: 50
             contour_area: 20
