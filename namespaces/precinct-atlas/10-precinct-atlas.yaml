@@ -58,9 +58,9 @@ spec:
         - name: atcr-login
       containers:
         - name: precinct-atlas
-          # OCI index (linux/amd64), built from voting-guide commit dbe34a5.
+          # OCI index (linux/amd64 + arm64), built from voting-guide commit edaad91.
           # Public image, so no imagePullSecret.
-          image: atcr.io/evan.jarrett.net/precinct-atlas:859295c@sha256:aca21a02510913463d00d5506216d1caaadfc7e8f06fc050688973bd921ab77f
+          image: atcr.io/evan.jarrett.net/precinct-atlas:edaad91@sha256:6791fdcb6e8306b5c482624f668fbd25ae1faa73ee2032b7705248d3f1483d16
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -70,6 +70,8 @@ spec:
           env:
             - name: DB_PATH
               value: /data/voters.db
+            - name: OVERRIDES
+              value: /state/overrides.json
             - name: PORT
               value: "8080"
             # Optional address prefix for the "My street" button. Kept out of
@@ -115,13 +117,18 @@ spec:
             - name: data
               mountPath: /data
               readOnly: true
+            # The one thing the app writes: the reader's picks for shared-name
+            # donations (overrides.json), kept apart from the read-only database.
+            - name: data
+              mountPath: /state
+              subPath: state
         # ----------------------------------------------------------------------
         # Idle helper with the data volume mounted read-write, so voters.db can
         # be streamed in with `kubectl exec -i` / `kubectl cp` without scaling
         # the app down or giving the app container write access. Reuses the app
         # image (busybox sh/tar/mv/sleep are all it needs).
         - name: loader
-          image: atcr.io/evan.jarrett.net/precinct-atlas:859295c@sha256:aca21a02510913463d00d5506216d1caaadfc7e8f06fc050688973bd921ab77f
+          image: atcr.io/evan.jarrett.net/precinct-atlas:edaad91@sha256:6791fdcb6e8306b5c482624f668fbd25ae1faa73ee2032b7705248d3f1483d16
           imagePullPolicy: IfNotPresent
           command:
             - sh
