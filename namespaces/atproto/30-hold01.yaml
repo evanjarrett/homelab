@@ -358,6 +358,9 @@ spec:
   accessMode: rwo
   dataLocality: disabled
   dataEngine: v2
+  # Delete failed replicas after 30 min (matches the StorageClasses). Unset
+  # defaults to 0 = keep forever, which left stopped replicas after node reboots.
+  staleReplicaTimeout: 30
   # Must match the Longhorn instance-manager image. Left empty, Longhorn treats a
   # detach as an engine upgrade and blanks the replica images, so the volume never
   # re-attaches. Renovate bumps this together with the Longhorn chart.
