@@ -63,7 +63,7 @@ spec:
         # file doesn't exist on first boot. Pre-create it (owned by 82:82 via
         # the pod securityContext) so AUTORUN's `php artisan migrate` succeeds.
         - name: init-sqlite
-          image: ghcr.io/usetrmnl/larapaper:0.45.1
+          image: ghcr.io/usetrmnl/larapaper:0.47.0
           command: ["sh", "-c", "touch /db/database.sqlite"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -74,7 +74,7 @@ spec:
               mountPath: /db
       containers:
         - name: larapaper
-          image: ghcr.io/usetrmnl/larapaper:0.45.1
+          image: ghcr.io/usetrmnl/larapaper:0.47.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -112,10 +112,6 @@ spec:
               value: "https://trmnl.app"
             - name: TRMNL_PROXY_REFRESH_MINUTES
               value: "15"
-            # Leave open so you can create the first admin account via the web UI;
-            # flip to "0" after that account exists.
-            - name: REGISTRATION_ENABLED
-              value: "1"
             - name: PHP_OPCACHE_ENABLE
               value: "1"
             - name: AUTORUN_ENABLED
@@ -167,7 +163,7 @@ spec:
         # then always hits the warm current_image cache (~40 ms) and never waits
         # on Chromium. The ~4s render happens here, off the poll path.
         - name: refresher
-          image: ghcr.io/usetrmnl/larapaper:0.45.1
+          image: ghcr.io/usetrmnl/larapaper:0.47.0
           imagePullPolicy: IfNotPresent
           command:
             - sh
