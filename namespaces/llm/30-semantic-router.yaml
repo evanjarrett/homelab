@@ -45,8 +45,13 @@ spec:
       tag: v0.4.0
     persistence:
       enabled: true
-      storageClassName: longhorn
+      # Longhorn only has v2 (SPDK block) disks; the v1 `longhorn` class can't
+      # place replicas anywhere.
+      storageClassName: longhorn-v2
       size: 10Gi
+    # v2 volumes only attach where a v2 instance-manager runs.
+    nodeSelector:
+      storage.longhorn-v2: 'true'
     resources:
       requests:
         cpu: 250m
