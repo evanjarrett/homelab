@@ -2,7 +2,9 @@
 # Pro B50 (16GB), in parallel with llama-server (qwen3.6-35b on the Strix).
 # Nothing points here yet; Frigate GenAI is the first intended consumer.
 #
-# Model: Qwen3.5-9B (natively multimodal), online sym_int4 -> ~6GB weights.
+# Model: Qwen3.5-9B (natively multimodal), online sym_int4 -> 8.2GiB measured
+#   (vision encoder + embeddings stay BF16). Profiling at 32K context left only
+#   0.97GiB for KV; Frigate prompts are ~1-2K tokens, so context is 8K.
 #   Fallbacks, swap MODEL/SERVED_NAME below:
 #     google/gemma-4-12B-it   (officially listed by Intel; add --dtype float16,
 #                              needs transformers>=5.10.1 on the 1.5 image, #705)
@@ -70,10 +72,12 @@ spec:
                 --host 0.0.0.0 --port 8080 \
                 --quantization sym_int4 \
                 --gpu-memory-utilization 0.75 \
-                --max-model-len 32768 \
+                --max-model-len 8192 \
+                --max-num-batched-tokens 8192 \
                 --max-num-seqs 4 \
                 --enforce-eager \
-                --limit-mm-per-prompt '{"image": 4}' \
+                --limit-mm-per-prompt '{"image": 4, "video": 0}' \
+                --mm-processor-kwargs '{"max_pixels": 1310720}' \
                 --default-chat-template-kwargs '{"enable_thinking": false}' \
                 --enable-auto-tool-choice --tool-call-parser qwen3_coder \
                 --trust-remote-code

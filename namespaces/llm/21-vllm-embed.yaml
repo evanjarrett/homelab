@@ -1,6 +1,8 @@
 # POC: multimodal embeddings on the other Arc Pro B50, alongside Frigate.
 #
-# Model: Qwen3-VL-Embedding-8B (Jan 2026), online FP8 -> ~9GB weights.
+# Model: Qwen3-VL-Embedding-8B (Jan 2026), online FP8 -> 8.62GiB measured.
+#   At 65% / 8K batch / default video profiling, KV came out at -1.4GiB, so:
+#   75% of the card (Frigate keeps ~4GB), 4K tokens, images only, <=1.3MP.
 #   Text, images, screenshots, video in one vector space (MMEB-V2 77.9;
 #   text MMTEB 67.9 vs 70.6 for the text-only Qwen3-Embedding-8B). Listed by
 #   intel/llm-scaler for FP16/FP8/Int4. MRL: clients may truncate the 4096-dim
@@ -11,7 +13,7 @@
 # only means re-embedding.
 #
 # Placement: hard anti-affinity with vllm-vision -> never two models on one
-# B50 (their --gpu-memory-utilization caps would sum past 100%). With
+# B50 (their 75% --gpu-memory-utilization caps would sum past 100%). With
 # sharedDevNum: 2 each card then holds at most one model + Frigate.
 apiVersion: apps/v1
 kind: Deployment
@@ -60,9 +62,11 @@ spec:
                 --host 0.0.0.0 --port 8080 \
                 --runner pooling \
                 --quantization fp8 \
-                --gpu-memory-utilization 0.65 \
-                --max-model-len 8192 \
-                --max-num-batched-tokens 8192 \
+                --gpu-memory-utilization 0.75 \
+                --max-model-len 4096 \
+                --max-num-batched-tokens 4096 \
+                --limit-mm-per-prompt '{"image": 1, "video": 0}' \
+                --mm-processor-kwargs '{"max_pixels": 1310720}' \
                 --no-enable-prefix-caching \
                 --enforce-eager \
                 --trust-remote-code
