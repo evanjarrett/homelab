@@ -161,6 +161,12 @@ spec:
           roles:
             - descriptions
             - chat
+      # GenAI review summaries: a short summary per review item, written by the
+      # `descriptions` provider above. Alerts only (the default); detections
+      # are noisier and would mean many more LLM calls.
+      review:
+        genai:
+          enabled: true
       objects:
         track:
           - person
