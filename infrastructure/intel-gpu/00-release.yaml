@@ -29,6 +29,10 @@ spec:
   values:
     nodeFeatureRule: true
     denyIDs: "0x9bc5"  # Exclude UHD 630 iGPU, only expose discrete GPUs
+    # Overcommit each B50 so Frigate (light transcode only; detection is on the
+    # Corals) can share a card with a small vLLM model. No VRAM isolation:
+    # model pods must cap themselves via --gpu-memory-utilization.
+    sharedDevNum: 2
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
