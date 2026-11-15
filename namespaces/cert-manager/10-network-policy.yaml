@@ -1,3 +1,7 @@
+# cert-manager: DNS-01 via Cloudflare (10-cluster-issuer.yaml), no HTTP-01.
+#
+# kube-apiserver is hostNetwork on the control planes (.161-.163:6443). Under
+# Cilium these ipBlocks only match with `policyCIDRMatchMode: nodes`.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,52 +16,39 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-gateway-ingress
-  namespace: cert-manager
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: gateway
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-dns-egress
+  name: allow-egress
   namespace: cert-manager
 spec:
   podSelector: {}
   policyTypes:
   - Egress
   egress:
-  # Allow DNS to kube-system
+  # DNS (CoreDNS)
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: kube-system
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  # Allow DNS to knotdns
-  - to:
-    - namespaceSelector:
+      podSelector:
         matchLabels:
-          kubernetes.io/metadata.name: knotdns
+          k8s-app: kube-dns
     ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external internet but block internal networks (for Let's Encrypt)
+  # kube-apiserver (controller, cainjector, webhook, startupapicheck)
+  - to:
+    - ipBlock:
+        cidr: 192.168.1.161/32
+    - ipBlock:
+        cidr: 192.168.1.162/32
+    - ipBlock:
+        cidr: 192.168.1.163/32
+    ports:
+    - protocol: TCP
+      port: 6443
+  # Let's Encrypt ACME, Cloudflare API, and the DNS-01 propagation check
+  # (DoH to 1.1.1.1, see dns01RecursiveNameservers in 00-release.yaml).
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0
@@ -68,5 +59,49 @@ spec:
     ports:
     - protocol: TCP
       port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-webhook-ingress
+  namespace: cert-manager
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: webhook
+  policyTypes:
+  - Ingress
+  ingress:
+  # kube-apiserver calls the webhook (failurePolicy: Fail, so this must work
+  # or every cert-manager CR write fails).
+  - from:
+    - ipBlock:
+        cidr: 192.168.1.161/32
+    - ipBlock:
+        cidr: 192.168.1.162/32
+    - ipBlock:
+        cidr: 192.168.1.163/32
+    ports:
     - protocol: TCP
-      port: 80
+      port: 10250
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-metrics-ingress
+  namespace: cert-manager
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: victoria-metrics-agent
+    ports:
+    - protocol: TCP
+      port: 9402

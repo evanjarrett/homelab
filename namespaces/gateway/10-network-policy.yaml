@@ -1,3 +1,13 @@
+# jarrett-net (Istio Gateway API) policies.
+#
+# Enforcement notes (the cluster CNI is plain Flannel today, so none of this is
+# enforced yet; it is written for Cilium):
+#  - LB 192.168.3.1 has externalTrafficPolicy: Cluster, so client traffic
+#    reaches the pod SNATed to node IPs. Public 443 ingress must therefore be
+#    open to any source.
+#  - ipBlock rules that target node or LAN addresses need Cilium
+#    `policyCIDRMatchMode: nodes` (node IPs are otherwise only matchable as
+#    entities).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -12,18 +22,32 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-istio-ingress
+  name: allow-https-ingress
   namespace: gateway
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: jarrett-net
   policyTypes:
   - Ingress
   ingress:
-  # Allow traffic from Istio service mesh
+  # Public HTTPS via MetalLB (any source; see SNAT note above).
+  - ports:
+    - protocol: TCP
+      port: 443
+  # vmagent scrapes Envoy (prometheus.io annotations + istio-proxy job).
   - from:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: istio-system
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: victoria-metrics-agent
+    ports:
+    - protocol: TCP
+      port: 15020
+    - protocol: TCP
+      port: 15090
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -31,43 +55,176 @@ metadata:
   name: allow-backend-egress
   namespace: gateway
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: jarrett-net
   policyTypes:
   - Egress
   egress:
-  # Allow DNS
+  # DNS (CoreDNS)
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
     ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
+  # xDS + certificates from istiod
   - to:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: knotdns
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app: istiod
     ports:
-    - protocol: UDP
-      port: 53
     - protocol: TCP
-      port: 53
-  # Allow routing to application namespaces
+      port: 15012
+  # In-cluster HTTPRoute backends. Ports are pod (target) ports, one rule per
+  # namespace. Keep in sync with `kubectl get httproute -A`.
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: agent
+    ports:
+    - protocol: TCP
+      port: 4500  # letta-code
+    - protocol: TCP
+      port: 8080  # open-webui
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: atproto
+    ports:
+    - protocol: TCP
+      port: 3000  # atproto-pds
+    - protocol: TCP
+      port: 8080  # hold01
   - to:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: website
+          kubernetes.io/metadata.name: frigate
+    ports:
+    - protocol: TCP
+      port: 5000
   - to:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: proxy
+          kubernetes.io/metadata.name: headscale
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: llm
+    ports:
+    - protocol: TCP
+      port: 8080  # llama-server, vllm-vision, llm-gateway-istio
+    - protocol: TCP
+      port: 8000  # git-summarizer
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: longhorn-system
+      podSelector:
+        matchLabels:
+          app: longhorn-ui
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: loom-system
+    ports:
+    - protocol: TCP
+      port: 6555
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: grafana
+    ports:
+    - protocol: TCP
+      port: 3000
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: precinct-atlas
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: proxy
+    ports:
+    - protocol: TCP
+      port: 80  # whoami
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: trmnl
+    ports:
+    - protocol: TCP
+      port: 8080
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: website
+    ports:
+    - protocol: TCP
+      port: 3000
+  # LAN backends behind the selectorless Services in `proxy`. Envoy connects
+  # to the EndpointSlice addresses directly, so these are ipBlocks, not a
+  # namespaceSelector. Keep in sync with namespaces/proxy/.
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.101/32  # Synology
+    ports:
+    - protocol: TCP
+      port: 5000  # synology
+    - protocol: TCP
+      port: 8081  # photos
+    - protocol: TCP
+      port: 8082  # calendar
+    - protocol: TCP
+      port: 8083  # contacts
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.120/32  # Home Assistant
+    ports:
+    - protocol: TCP
+      port: 8123
+  - to:
+    - ipBlock:
+        cidr: 192.168.0.22/32  # Omada controller
+    - ipBlock:
+        cidr: 192.168.0.23/32
+    ports:
+    - protocol: TCP
+      port: 8043
+  - to:
+    - ipBlock:
+        cidr: 192.168.1.100/32  # TrueNAS
+    ports:
+    - protocol: TCP
+      port: 443    # truenas UI
+    - protocol: TCP
+      port: 30013  # jellyfin
+    - protocol: TCP
+      port: 30404  # sure
+  - to:
+    - ipBlock:
+        cidr: 192.168.1.110/32  # OpenDTU
+    ports:
+    - protocol: TCP
+      port: 80

@@ -1,3 +1,6 @@
+# `proxy` holds selectorless Services that point at LAN hosts; the gateway
+# (Envoy, ns `gateway`) dials those LAN IPs itself. The only pod here is
+# whoami, which needs no egress at all.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,60 +18,19 @@ metadata:
   name: allow-gateway-ingress
   namespace: proxy
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: whoami
   policyTypes:
   - Ingress
   ingress:
   - from:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
           kubernetes.io/metadata.name: gateway
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-dns-egress
-  namespace: proxy
-spec:
-  podSelector: {}
-  policyTypes:
-  - Egress
-  egress:
-  # Allow DNS to kube-system
-  - to:
-    - namespaceSelector:
+      podSelector:
         matchLabels:
-          kubernetes.io/metadata.name: kube-system
+          gateway.networking.k8s.io/gateway-name: jarrett-net
     ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  # Allow DNS to knotdns
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: knotdns
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  # Allow access to internal network (reverse proxy to internal services)
-  - to: []
-    ports:
-    - protocol: TCP
-      port: 443
     - protocol: TCP
       port: 80
-    - protocol: TCP
-      port: 8123  # Home Assistant
-    - protocol: TCP
-      port: 5000  # Synology
-    - protocol: TCP
-      port: 8080  # Various web UIs
-    - protocol: TCP
-      port: 8081  # Various web UIs

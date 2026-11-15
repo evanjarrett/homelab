@@ -1,3 +1,6 @@
+# NOTE: the cluster CNI is plain Flannel, which does not enforce NetworkPolicy.
+# These are written for Cilium. ipBlocks that target node IPs (the apiserver
+# on .161-.163:6443) need Cilium `policyCIDRMatchMode: nodes`.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -9,6 +12,7 @@ spec:
     - Ingress
     - Egress
 ---
+# llama.j5t.io, vision.j5t.io, summarize.j5t.io, llm.j5t.io via jarrett-net.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -22,15 +26,46 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: istio-system
-        - namespaceSelector:
-            matchLabels:
               kubernetes.io/metadata.name: gateway
+          podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: jarrett-net
+      ports:
+        - protocol: TCP
+          port: 8080 # llama-server, vllm-vision, llm-gateway-istio
+        - protocol: TCP
+          port: 8000 # git-summarizer
 ---
+# Frigate GenAI (vllm-vision) and its llama-server provider.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-frigate-ingress
+  namespace: llm
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [llama-server, vllm-vision]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frigate
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# agent namespace: letta-code -> llama-server, hermes/open-webui ->
+# llm-gateway-istio, open-webui -> vllm-embed. All on 8080; the targets carry
+# different label keys, so this stays namespace-wide.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agent-ingress
   namespace: llm
 spec:
   podSelector: {}
@@ -40,7 +75,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: frigate
+              kubernetes.io/metadata.name: agent
       ports:
         - protocol: TCP
           port: 8080
@@ -59,28 +94,27 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
-      ports:
-        - protocol: UDP
-          port: 53
-        - protocol: TCP
-          port: 53
-    - to:
-        - namespaceSelector:
+          podSelector:
             matchLabels:
-              kubernetes.io/metadata.name: knotdns
+              k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53
         - protocol: TCP
           port: 53
 ---
+# HuggingFace model downloads (llama-server init, vLLM, router, ad-hoc fetch
+# Jobs). Everything except the llm-gateway Envoy pod, which never needs it.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-internet-egress
   namespace: llm
 spec:
-  podSelector: {}
+  podSelector:
+    matchExpressions:
+      - key: gateway.networking.k8s.io/gateway-name
+        operator: DoesNotExist
   policyTypes:
     - Egress
   egress:
@@ -115,31 +149,30 @@ spec:
         - protocol: TCP
           port: 8080
 ---
-# Let the letta-code agent (agent namespace) reach the llama.cpp OpenAI API.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-agent-ingress
+  name: allow-git-summarizer-ingress
   namespace: llm
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: llama-server
   policyTypes:
     - Ingress
   ingress:
     - from:
-        - namespaceSelector:
+        - podSelector:
             matchLabels:
-              kubernetes.io/metadata.name: agent
+              app: git-summarizer
       ports:
         - protocol: TCP
           port: 8080
 ---
-# Semantic router wiring (30-semantic-router.yaml). NOTE: the cluster CNI is
-# plain Flannel, which does not enforce NetworkPolicy; these are written so the
-# router keeps working if enforcement is ever enabled.
+# Semantic router wiring (30-semantic-router.yaml).
 #
 # llm-gateway (Istio Envoy) pods: xDS from istiod, ext_proc to the router,
-# and proxying to the model backends.
+# proxying to the model backends (HTTPRoute llm-gateway-models).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -156,6 +189,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: istio-system
+          podSelector:
+            matchLabels:
+              app: istiod
       ports:
         - protocol: TCP
           port: 15012
@@ -171,11 +207,39 @@ spec:
             matchExpressions:
               - key: app
                 operator: In
-                values: [llama-server, vllm-vision, vllm-embed]
+                values: [llama-server, vllm-vision]
       ports:
         - protocol: TCP
           port: 8080
 ---
+# vmagent scrapes the llm-gateway Envoy (prometheus.io annotations + istio-proxy job).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-metrics
+  namespace: llm
+spec:
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: llm-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: victoria-metrics-agent
+      ports:
+        - protocol: TCP
+          port: 15020
+        - protocol: TCP
+          port: 15090
+---
+# Backends accept the llm-gateway (proxying) and the router (its config lists
+# them as endpoints; harmless if it only uses ext_proc).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -186,7 +250,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [llama-server, vllm-vision, vllm-embed]
+        values: [llama-server, vllm-vision]
   policyTypes:
     - Ingress
   ingress:
@@ -194,13 +258,16 @@ spec:
         - podSelector:
             matchLabels:
               gateway.networking.k8s.io/gateway-name: llm-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: semantic-router
       ports:
         - protocol: TCP
           port: 8080
 ---
-# Router: ext_proc from the gateway; it watches its own ConfigMap through the
-# API server (control planes .161-.163:6443). HF model downloads use the
-# namespace-wide allow-internet-egress.
+# Router: ext_proc from the gateway; watches its own ConfigMap through the
+# API server (control planes .161-.163:6443); may call the backends directly.
+# HF model downloads use allow-internet-egress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -232,3 +299,12 @@ spec:
       ports:
         - protocol: TCP
           port: 6443
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [llama-server, vllm-vision]
+      ports:
+        - protocol: TCP
+          port: 8080

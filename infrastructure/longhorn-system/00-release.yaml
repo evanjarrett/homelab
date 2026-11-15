@@ -19,6 +19,18 @@ spec:
     remediation:
       retries: 3
   values:
+    # Since chart 1.12.1 restrictInternalTraffic defaults to true and renders
+    # ingress policies for manager/webhook/instance-manager/etc. Let vmagent
+    # scrape longhorn-manager :9500 (also the REST API, so scope it tightly).
+    # longhorn-ui is covered by namespaces/longhorn-system/10-network-policy.yaml.
+    networkPolicies:
+      metricsScrapeSources:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: victoria-metrics-agent
     defaultSettings:
       createDefaultDiskLabeledNodes: true
       nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod

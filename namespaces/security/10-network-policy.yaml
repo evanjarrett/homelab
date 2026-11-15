@@ -29,21 +29,16 @@ spec:
       port: 53
     - protocol: TCP
       port: 53
-  # Allow DNS to knotdns
+  # Allow kubernetes API access for kubebench. The apiserver is hostNetwork on
+  # the control planes, so it can't be matched by namespaceSelector; under
+  # Cilium these ipBlocks need `policyCIDRMatchMode: nodes`.
   - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: knotdns
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  # Allow kubernetes API access for kubebench
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: kube-system
+    - ipBlock:
+        cidr: 192.168.1.161/32
+    - ipBlock:
+        cidr: 192.168.1.162/32
+    - ipBlock:
+        cidr: 192.168.1.163/32
     ports:
     - protocol: TCP
       port: 6443
