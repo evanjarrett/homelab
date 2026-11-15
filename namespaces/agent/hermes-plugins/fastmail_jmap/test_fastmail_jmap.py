@@ -393,6 +393,60 @@ def adapter_refuses_other_recipients():
     assert a.recipient_for("other@example.org", {"to": USER}) == USER  # context sender wins, never the target
 
 
+MX = "phl-mx-01.messagingengine.com"
+# Header layout observed on real Fastmail-to-Fastmail mail (2026-11-15): the receiving MX splits
+# its verdict across four consecutive Authentication-Results headers; DMARC is only in the fourth.
+FASTMAIL_SPLIT = [
+    ("Return-Path", "<jett@example.com>"),
+    ("Received", f"from mailmx.phl.internal by {MX}"),
+    ("ARC-Seal", "i=1; a=rsa-sha256; cv=none; d=messagingengine.com; b=x"),
+    ("ARC-Authentication-Results", f"i=1; {MX}; x-me-sender=pass"),
+    ("X-ME-Authentication-Results", "x"),
+    ("Authentication-Results", f"{MX}; x-csa=none; x-me-sender=pass policy.xms=abc; x-ptr=pass smtp.helo=flow-a1-smtp.messagingengine.com"),
+    ("Authentication-Results", f"{MX}; bimi=none (No BIMI records found)"),
+    ("Authentication-Results", f"{MX}; arc=none (no signatures found)"),
+    ("Authentication-Results", f"{MX}; dkim=pass header.d=example.com header.i=@example.com header.s=fm3; "
+                               "dmarc=pass policy.published-domain-policy=none header.from=example.com"),
+    ("X-ME-VSScore", "0"),
+    ("From", f"Jett <{USER}>"),
+]
+
+
+def meta_from_headers(raw):
+    return {"from_raw": f"Jett <{USER}>", "from_count": 1, "headers": {},
+            "auth_msg": logic.merged_auth_message(logic.receiving_mta_results(raw))}
+
+
+@test
+def fastmail_split_results_pass():
+    run = logic.receiving_mta_results(FASTMAIL_SPLIT)
+    assert len(run) == 4, run
+    ok, why = gate(meta_from_headers(FASTMAIL_SPLIT))
+    assert ok, why
+    # the old topmost-only reading misses DMARC on this layout
+    assert not gate(meta_for(ar=[FASTMAIL_SPLIT[5][1]]))[0]
+
+
+@test
+def injected_results_below_run_are_ignored():
+    # Topmost run has no DMARC verdict; a sender-supplied pass sits below other headers.
+    raw = FASTMAIL_SPLIT[:8] + [("X-ME-VSScore", "0")] + [FASTMAIL_SPLIT[8]] + FASTMAIL_SPLIT[10:]
+    assert len(logic.receiving_mta_results(raw)) == 3
+    assert not gate(meta_from_headers(raw))[0]
+    # Same authserv-id but a different one in between also ends the run.
+    raw2 = FASTMAIL_SPLIT[:6] + [("Authentication-Results", "evil.example; dmarc=pass header.from=example.com")] + FASTMAIL_SPLIT[6:]
+    assert len(logic.receiving_mta_results(raw2)) == 1
+    assert not gate(meta_from_headers(raw2))[0]
+
+
+@test
+def untrusted_topmost_run_fails():
+    raw = [("Authentication-Results", "mx.attacker.example; dmarc=pass header.from=example.com"),
+           ("Authentication-Results", f"{MX}; dmarc=pass header.from=example.com")]
+    ok, why = gate(meta_from_headers(raw))
+    assert not ok and "not trusted" in why, why
+
+
 def main() -> int:
     failed = 0
     for fn in TESTS:

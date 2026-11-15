@@ -105,6 +105,53 @@ def headers_message(raw_headers: Iterable[tuple[str, Optional[str]]]) -> Message
     return msg
 
 
+def _authserv_of(value: str) -> Optional[str]:
+    clauses = _ar_clauses(" ".join(str(value).split()))
+    return (clauses[0].strip().lower() or None) if clauses else None
+
+
+def receiving_mta_results(raw_headers: Iterable[tuple[str, Optional[str]]]) -> list[str]:
+    """The Authentication-Results values stamped by the receiving MTA, in order.
+
+    Fastmail splits one verdict across several consecutive Authentication-Results headers from the
+    same authserv-id (e.g. x-me-sender/x-ptr in the first, dkim/dmarc in the fourth), so reading only
+    the topmost one misses the DMARC result. Take the topmost Authentication-Results header plus every
+    header *immediately* following it that is also Authentication-Results with the *same*
+    authserv-id, and stop at the first header that is anything else. Sender-supplied copies sit below
+    the receiving MTA's own trace headers, so they can never join this run.
+    *raw_headers* is the full ordered header list (topmost first)."""
+    items = [(n, v) for n, v in raw_headers if v is not None]
+    start = next((i for i, (n, _) in enumerate(items) if n.lower() == "authentication-results"), None)
+    if start is None:
+        return []
+    first = items[start][1]
+    authserv = _authserv_of(first)
+    run = [first]
+    for name, value in items[start + 1:]:
+        if name.lower() != "authentication-results" or _authserv_of(value) != authserv:
+            break
+        run.append(value)
+    return run
+
+
+def merged_auth_message(values: list[str]) -> Message:
+    """One ``Authentication-Results`` header carrying the authserv-id of the first value and the
+    result clauses of all of them: the single-header shape the email plugin's verifier expects."""
+    if not values:
+        return headers_message([])
+    authserv = None
+    clauses: list[str] = []
+    for value in values:
+        parts = _ar_clauses(" ".join(str(value).split()))
+        if not parts:
+            continue
+        authserv = authserv or parts[0].strip()
+        clauses.extend(p.strip() for p in parts[1:] if p.strip())
+    if not authserv:
+        return headers_message([])
+    return headers_message([("Authentication-Results", "; ".join([authserv, *clauses]))])
+
+
 def topmost_authserv_id(msg: Message) -> Optional[str]:
     """The authserv-id of the FIRST (topmost, i.e. stamped by the receiving MTA) Authentication-
     Results header, lowercased; ``None`` if absent/unparseable."""

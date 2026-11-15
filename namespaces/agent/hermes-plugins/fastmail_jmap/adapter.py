@@ -70,6 +70,7 @@ _META_PROPS = [
     "id", "threadId", "mailboxIds", "keywords", "from", "subject", "receivedAt", "messageId",
     "inReplyTo", "references", "size",
     "header:From:asRaw", "header:Authentication-Results:asRaw:all",
+    "headers",  # full ordered header list: needed to find the receiving MTA's AR run (logic.receiving_mta_results)
     "header:Auto-Submitted:asText", "header:Precedence:asText", "header:X-Auto-Response-Suppress:asText",
     "header:List-Unsubscribe:asRaw", "header:List-Id:asRaw", "header:Return-Path:asRaw",
 ]
@@ -390,8 +391,11 @@ class FastmailAdapter(BasePlatformAdapter):
         headers = {name: meta.get(f"header:{name}:asText" if f"header:{name}:asText" in meta else f"header:{name}:asRaw")
                    for name in _GUARD_HEADERS}
         headers = {k: str(v).strip() for k, v in headers.items() if v is not None}
-        auth_msg = logic.headers_message(("Authentication-Results", v)
-                                         for v in (meta.get("header:Authentication-Results:asRaw:all") or []))
+        if meta.get("headers"):
+            run = logic.receiving_mta_results((h.get("name", ""), h.get("value")) for h in meta["headers"])
+        else:  # no ordered list: only the topmost value is safe to trust
+            run = (meta.get("header:Authentication-Results:asRaw:all") or [])[:1]
+        auth_msg = logic.merged_auth_message(run)
         return logic.gate({"from_raw": meta.get("header:From:asRaw") or "", "from_count": len(meta.get("from") or []),
                            "headers": headers, "auth_msg": auth_msg},
                           own_addresses=self._acct.get("own") or {self._address}, allowed=self._allowed,
