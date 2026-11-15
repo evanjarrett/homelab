@@ -1,0 +1,289 @@
+# Hermes Agent (NousResearch/hermes-agent) — the successor to the Letta-based Jett.
+#
+#   - Reasoning -> vLLM Semantic Router (model "auto": images -> vision, else qwen)
+#     at http://llm-gateway-istio.llm.svc.cluster.local:8080/v1, configured as a
+#     `custom` OpenAI-compatible provider in config.yaml (hermes-config below).
+#   - Runs `hermes gateway run` as the long-lived process. The gateway hosts the
+#     OpenAI-compatible API server on 0.0.0.0:8642 (Service `hermes`), which Open
+#     WebUI (60-open-webui.yaml) uses as its main "agent" connection, plus any
+#     messaging platforms enabled through the optional hermes-platforms Secret.
+#   - Tools run in-container (terminal.backend: local), as uid 10000, no caps.
+#   - All state (HERMES_HOME = /opt/data: config.yaml, .env, sessions, memory,
+#     skills, logs) lives on the longhorn-v2 PVC.
+#
+# Image: the official multi-arch (amd64+arm64) nousresearch/hermes-agent from
+# Docker Hub, pinned to a release tag + index digest. No custom build needed.
+#
+# Running non-root under the namespace's `restricted` PSA:
+#   The image's ENTRYPOINT normally execs s6-overlay /init as PID 1, which needs
+#   root to chown /opt/data and then drops to the `hermes` user (uid 10000).
+#   Restricted PSA forbids root, so instead:
+#     * shareProcessNamespace: true  -> the pause container is PID 1 (and reaps
+#       orphaned tool processes), so docker/entrypoint-dispatch.sh takes its
+#       documented non-PID-1 fallback: run docker/stage2-hook.sh (config seeding,
+#       API key handling, skills sync; root-only steps are skipped/tolerated when
+#       already running as the hermes uid), then exec main-wrapper.sh.
+#     * runAsUser 10000 == the image's `hermes` uid, which both scripts accept
+#       (any OTHER non-root uid is refused). fsGroup makes the PVC writable.
+#     * HERMES_GATEWAY_NO_SUPERVISE=1 -> `gateway run` stays in the foreground
+#       instead of handing off to s6 (which isn't running); Kubernetes restarts it.
+#   UNVERIFIED: this non-root path was read out of the v0.23.1 scripts, not run.
+#   If stage2 misbehaves, check `kubectl -n agent logs deploy/hermes` first.
+#
+# Secrets (HSM-synced, not in git):
+#   hermes-api-key     API_SERVER_KEY   required for the API server (>=16 chars,
+#                                       e.g. `openssl rand -hex 32`). Open WebUI
+#                                       reads the same Secret. While it's absent
+#                                       stage2 generates a key into /opt/data/.env
+#                                       (so the API server still starts, but Open
+#                                       WebUI can't authenticate until the Secret
+#                                       exists and the key in .env is removed).
+#   hermes-platforms   (optional) every key becomes an env var; see below.
+#
+# Messaging platforms (all off unless their keys exist in hermes-platforms):
+#   Discord   DISCORD_BOT_TOKEN, DISCORD_ALLOWED_USERS (or DISCORD_ALLOWED_ROLES)
+#   Telegram  TELEGRAM_BOT_TOKEN, TELEGRAM_ALLOWED_USERS
+#   Signal    SIGNAL_HTTP_URL (a signal-cli daemon, not provided here),
+#             SIGNAL_ACCOUNT, SIGNAL_ALLOWED_USERS
+#   Email     EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_IMAP_HOST, EMAIL_IMAP_PORT,
+#             EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_ALLOWED_USERS,
+#             EMAIL_AUTHSERV_ID
+#   Without an allowlist (or GATEWAY_ALLOW_ALL_USERS=true) a platform refuses
+#   everyone. Restart the pod after changing the Secret (env, not files).
+#   Note: $HERMES_HOME/.env is loaded with override=True, so a value written there
+#   by `hermes config set` wins over the pod env.
+#
+# kubectl: the image has none. The init container drops a checksum-verified
+# static kubectl into /opt/data/.local/bin (already on the image's PATH). It runs
+# as ServiceAccount `jett` (30-rbac.yaml: `edit` in agent + cluster-wide read).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-data
+  namespace: agent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Seed config for $HERMES_HOME/config.yaml. Hermes rewrites config.yaml itself
+# (`hermes config set`, `/model`, its config migrations), so this is seed-on-
+# change rather than overwrite-every-boot: the startup script copies it over only
+# when this content changes (sha in /opt/data/.config-seed-sha), keeping a backup
+# of the previous file. Pull live edits back into git before changing it:
+#   kubectl -n agent exec deploy/hermes -- cat /opt/data/config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-config
+  namespace: agent
+data:
+  config.yaml: |
+    model:
+      provider: custom
+      default: auto
+      base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
+      # The router has no auth; Hermes still wants a non-empty key.
+      api_key: none
+      # qwen (llama.cpp) has ~262K per slot. Requests routed to `vision`
+      # (32K) are image turns; very long conversations with images will
+      # overflow it.
+      context_length: 262144
+    terminal:
+      backend: local
+      cwd: /opt/data/workspace
+      timeout: 180
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes
+  namespace: agent
+spec:
+  replicas: 1
+  # Single writer on an RWO volume (SQLite state) -> never two pods at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes
+  template:
+    metadata:
+      labels:
+        app: hermes
+    spec:
+      # v2 (SPDK) volumes only attach where a v2 instance-manager runs.
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      # The image is multi-arch, so arm64 works, but the two arm64 v2 nodes are
+      # small eMMC boards and the image is ~3 GB: prefer the amd64 nodes.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values: ["amd64"]
+      serviceAccountName: jett
+      # pause becomes PID 1: reaps orphans and puts the entrypoint on its
+      # non-PID-1 (no s6) path. See the header.
+      shareProcessNamespace: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000         # the image's `hermes` user; other uids are refused
+        runAsGroup: 10000
+        fsGroup: 10000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: kubectl
+          image: docker.io/nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: KUBECTL_VERSION
+              value: v1.36.3     # match the cluster
+            - name: KUBECTL_SHA256_AMD64
+              value: ebbd080e7c2e275093b55915722043257eb24004363e20acb3c4d71919f88336
+            - name: KUBECTL_SHA256_ARM64
+              value: 3d86f24401c41ae5a46ac50eef8865fe891d3647d324a0836f6c63757a126e62
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              case "$(uname -m)" in
+                x86_64)  arch=amd64; sum="$KUBECTL_SHA256_AMD64" ;;
+                aarch64) arch=arm64; sum="$KUBECTL_SHA256_ARM64" ;;
+                *) echo "unsupported arch $(uname -m)"; exit 1 ;;
+              esac
+              bin=/opt/data/.local/bin/kubectl
+              mkdir -p /opt/data/.local/bin
+              if [ -x "$bin" ] && echo "$sum  $bin" | sha256sum -c - >/dev/null 2>&1; then
+                echo "kubectl $KUBECTL_VERSION already present"; exit 0
+              fi
+              curl -fsSL -o "$bin.tmp" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" \
+                || { echo "kubectl download failed; continuing without updating it"; exit 0; }
+              echo "$sum  $bin.tmp" | sha256sum -c -
+              chmod 0755 "$bin.tmp" && mv "$bin.tmp" "$bin"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+      containers:
+        - name: hermes
+          image: docker.io/nousresearch/hermes-agent:v0.23.1@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # Seed config.yaml, then hand off to the image's own entrypoint.
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              seed=/etc/hermes-seed/config.yaml
+              want="$(sha256sum "$seed" | cut -d' ' -f1)"
+              have="$(cat "$HERMES_HOME/.config-seed-sha" 2>/dev/null || true)"
+              if [ "$want" != "$have" ]; then
+                if [ -f "$HERMES_HOME/config.yaml" ]; then
+                  cp "$HERMES_HOME/config.yaml" "$HERMES_HOME/config.yaml.bak-$(date +%Y%m%d%H%M%S)"
+                fi
+                cp "$seed" "$HERMES_HOME/config.yaml"
+                echo "$want" > "$HERMES_HOME/.config-seed-sha"
+                echo "[seed] config.yaml updated from hermes-config ConfigMap"
+              fi
+              mkdir -p "$HERMES_HOME/workspace"
+              exec /opt/hermes/docker/entrypoint-dispatch.sh gateway run
+          env:
+            - name: HERMES_GATEWAY_NO_SUPERVISE
+              value: "1"
+            - name: API_SERVER_ENABLED
+              value: "true"
+            - name: API_SERVER_HOST
+              value: 0.0.0.0
+            - name: API_SERVER_PORT
+              value: "8642"
+            # Model id advertised on /v1/models (what Open WebUI lists).
+            - name: API_SERVER_MODEL_NAME
+              value: jett
+            - name: API_SERVER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hermes-api-key
+                  key: API_SERVER_KEY
+                  optional: true
+          envFrom:
+            # Messaging platform credentials; see the header for the keys.
+            - secretRef:
+                name: hermes-platforms
+                optional: true
+          ports:
+            - name: api
+              containerPort: 8642
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: api
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 120   # first boot syncs skills / migrates config
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 3Gi          # python runtime + tool subprocesses (git, node, ...)
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            - name: seed
+              mountPath: /etc/hermes-seed
+              readOnly: true
+            # s6/XDG runtime dirs the stage2 hook expects to create.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hermes-data
+        - name: seed
+          configMap:
+            name: hermes-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hermes
+  namespace: agent
+spec:
+  selector:
+    app: hermes
+  ports:
+    - name: http-api
+      port: 8642
+      targetPort: api

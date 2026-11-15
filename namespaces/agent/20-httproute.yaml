@@ -22,3 +22,26 @@ spec:
     - backendRefs:
         - name: letta-code
           port: 4500
+---
+# Open WebUI (60-open-webui.yaml) at chat.j5t.io, internal-only like agent.j5t.io.
+# Envoy upgrades the socket.io WebSocket automatically.
+#
+# CUTOVER: chat.j5t.io is still claimed by the live, untracked HTTPRoute
+# `agent-gateway-route` (-> svc agent-gateway). With two routes on the same
+# host/path the OLDER route wins, so this one only takes effect once that is
+# deleted: kubectl -n agent delete httproute agent-gateway-route
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: chat-tls-route
+  namespace: agent
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - chat.j5t.io
+  rules:
+    - backendRefs:
+        - name: open-webui
+          port: 8080

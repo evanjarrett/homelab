@@ -1,0 +1,217 @@
+# Open WebUI at https://chat.j5t.io — the chat front end for Hermes (Jett).
+#
+# Connections (OpenAI-compatible, semicolon-separated, index-aligned):
+#   0  Hermes API server  http://hermes.agent.svc.cluster.local:8642/v1
+#      key = API_SERVER_KEY from Secret hermes-api-key. Lists one model, `jett`
+#      (API_SERVER_MODEL_NAME in 50-hermes.yaml): the agent, with tools + memory.
+#   1  Semantic router    http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
+#      no auth (dummy key). Plain chats with `auto` / `qwen` / `vision`.
+# RAG embeddings: vllm-embed (`embed`, Qwen3-VL-Embedding-8B, 4096-dim) through
+# the OpenAI embedding engine. Vector store = the default (Chroma) on the PVC.
+#
+# IMPORTANT: Open WebUI persists most of these settings in its DB on FIRST boot
+# (ENABLE_PERSISTENT_CONFIG). Changing the env later does nothing; change it in
+# Admin Settings, or set ENABLE_PERSISTENT_CONFIG=false to make env authoritative.
+#
+# Auth is on: the FIRST account created at chat.j5t.io becomes admin. Sign up
+# immediately after the first deploy. Later sign-ups are created "pending" until
+# an admin approves them (DEFAULT_USER_ROLE=pending); set ENABLE_SIGNUP=false
+# after creating accounts to close it entirely.
+#
+# Image: official ghcr.io/open-webui/open-webui, multi-arch (amd64+arm64),
+# pinned to tag + digest. Plain manifests instead of the Helm chart: the chart
+# drags in ollama/pipelines/redis toggles and wants both API keys in one
+# pre-joined Secret value; here the key list is built from env by $(VAR).
+#
+# Non-root: the image defaults to root, but /app/backend/open_webui/static is
+# group-0 writable (OpenShift-style), so uid 1000 + gid 0 works; all writable
+# state is under DATA_DIR on the PVC. Upstream calls non-root "untested".
+#
+# Secrets (HSM-synced, not in git):
+#   hermes-api-key     API_SERVER_KEY    shared with 50-hermes.yaml
+#   open-webui-secret  WEBUI_SECRET_KEY  (optional) JWT/session signing key.
+#                      Absent -> start.sh generates one into the PVC
+#                      (WEBUI_SECRET_KEY_FILE), which is also fine.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-data
+  namespace: agent
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-webui
+  namespace: agent
+spec:
+  replicas: 1
+  # SQLite + Chroma on an RWO volume -> single writer.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: open-webui
+  template:
+    metadata:
+      labels:
+        app: open-webui
+    spec:
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      # Multi-arch image, but prefer the amd64 v2 nodes over the small arm64 ones.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values: ["amd64"]
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 0            # static/ is group-0 writable in the image
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: open-webui
+          image: ghcr.io/open-webui/open-webui:v0.13.3@sha256:46b59158e6558eeb980bc828e0f1b30238ad24d82ed84d5e5eda1dab2a082f14
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: HERMES_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hermes-api-key
+                  key: API_SERVER_KEY
+                  optional: true
+            - name: WEBUI_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: open-webui-secret
+                  key: WEBUI_SECRET_KEY
+                  optional: true
+            - name: WEBUI_SECRET_KEY_FILE
+              value: /app/backend/data/.webui_secret_key
+            - name: DATA_DIR
+              value: /app/backend/data
+            - name: HOME
+              value: /app/backend/data
+            - name: WEBUI_URL
+              value: https://chat.j5t.io
+            - name: WEBUI_NAME
+              value: Jett
+            # --- auth ---
+            - name: WEBUI_AUTH
+              value: "true"
+            - name: ENABLE_SIGNUP
+              value: "true"
+            - name: DEFAULT_USER_ROLE
+              value: pending
+            # --- model backends ---
+            - name: ENABLE_OLLAMA_API
+              value: "false"
+            - name: ENABLE_OPENAI_API
+              value: "true"
+            - name: OPENAI_API_BASE_URLS
+              value: "http://hermes.agent.svc.cluster.local:8642/v1;http://llm-gateway-istio.llm.svc.cluster.local:8080/v1"
+            - name: OPENAI_API_KEYS
+              value: "$(HERMES_API_KEY);none"
+            - name: DEFAULT_MODELS
+              value: jett
+            # Titles/tags/follow-ups go to qwen directly instead of spinning up a
+            # Hermes agent run (and a Hermes session) per background task.
+            - name: TASK_MODEL_EXTERNAL
+              value: qwen
+            # Agent turns with many tool calls can run long.
+            - name: AIOHTTP_CLIENT_TIMEOUT
+              value: "1800"
+            # --- RAG: embeddings via vllm-embed ---
+            - name: RAG_EMBEDDING_ENGINE
+              value: openai
+            - name: RAG_OPENAI_API_BASE_URL
+              value: http://vllm-embed.llm.svc.cluster.local:8080/v1
+            - name: RAG_OPENAI_API_KEY
+              value: none
+            - name: RAG_EMBEDDING_MODEL
+              value: embed
+            - name: RAG_EMBEDDING_BATCH_SIZE
+              value: "16"
+            # --- no outbound telemetry / update checks ---
+            - name: SCARF_NO_ANALYTICS
+              value: "true"
+            - name: DO_NOT_TRACK
+              value: "true"
+            - name: ANONYMIZED_TELEMETRY
+              value: "false"
+            - name: ENABLE_VERSION_UPDATE_CHECK
+              value: "false"
+            - name: ENABLE_COMMUNITY_SHARING
+              value: "false"
+            # Don't pull the local sentence-transformers model at boot (we use
+            # the OpenAI engine). Leaves OFFLINE_MODE off so Whisper STT can still
+            # fetch its model on first use.
+            - name: RAG_EMBEDDING_MODEL_AUTO_UPDATE
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30     # first boot runs DB migrations
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /app/backend/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: open-webui-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: open-webui
+  namespace: agent
+spec:
+  selector:
+    app: open-webui
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
