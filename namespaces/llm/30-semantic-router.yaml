@@ -1,0 +1,249 @@
+# vLLM Semantic Router: one OpenAI-compatible entry point for the local models.
+#
+#   client -> llm-gateway (Istio Gateway, Envoy) --ext_proc--> semantic-router
+#                 |  router classifies the request and sets x-selected-model
+#                 +-- x-selected-model: qwen   -> llama-server (Strix, llama.cpp)
+#                 +-- x-selected-model: vision -> vllm-vision  (B50, vLLM)
+#                 +-- no header (router down; failure_mode_allow) -> llama-server
+#
+# Endpoint: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1 in-cluster,
+# https://llm.j5t.io/v1 on the LAN (route in 10-httproute.yaml).
+# Clients send model "auto" (or "vllm-sr/auto") to be routed; a request naming a
+# configured model ("qwen", "vision") goes straight to it.
+#
+# Router config is the chart's canonical document (configOverride). Bump
+# configMap.applyValuesRevision when changing it, or Helm keeps the live
+# ConfigMap (the router's management API may edit it in place).
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: semantic-router-helmrelease
+  namespace: llm
+spec:
+  releaseName: semantic-router
+  interval: 30m
+  chart:
+    spec:
+      chart: semantic-router
+      version: 0.4.0
+      sourceRef:
+        kind: HelmRepository
+        name: vllm-semantic-router-helmrepo
+        namespace: flux-system
+  install:
+    crds: CreateReplace
+    remediation:
+      retries: 3
+  upgrade:
+    crds: CreateReplace
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    image:
+      tag: v0.4.0
+    persistence:
+      enabled: true
+      storageClassName: longhorn
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 1Gi
+      limits:
+        cpu: '2'
+        memory: 4Gi
+    configMap:
+      applyValuesRevision: '1'
+    configOverride:
+      version: v0.3
+      listeners:
+      - name: grpc-50051
+        address: 0.0.0.0
+        port: 50051
+        timeout: 300s
+      global:
+        router:
+          auto_model_names:
+          - auto
+          - vllm-sr/auto
+        stores:
+          response_cache:
+            enabled: false
+            backend_type: memory
+        integrations:
+          tools:
+            enabled: false
+      providers:
+        defaults:
+          model: qwen
+        models:
+        - name: qwen
+          provider_model_id: qwen3.6-35b
+          api_format: openai
+          backend_refs:
+          - name: llama-server
+            provider: vllm
+            endpoint: llama-server.llm.svc.cluster.local:8080
+            protocol: http
+            weight: 1
+        - name: vision
+          provider_model_id: vision
+          api_format: openai
+          backend_refs:
+          - name: vllm-vision
+            provider: vllm
+            endpoint: vllm-vision.llm.svc.cluster.local:8080
+            protocol: http
+            weight: 1
+      routing:
+        modelCards:
+        - name: qwen
+          description: Main local model on the Strix Halo (llama.cpp).
+          context_window_size: 262144
+          modality: text
+        - name: vision
+          description: Qwen3.5-9B on an Arc Pro B50 (vLLM); image understanding.
+          context_window_size: 32768
+          modality: omni
+          capabilities:
+          - vision
+          - image_understanding
+          - text
+        signals:
+          input_modality:
+          - name: image_input
+            description: Request contains at least one image content part.
+            modality: image
+        decisions:
+        - name: vision-request
+          description: Image-bearing requests go to the B50 vision model.
+          priority: 1000
+          rules:
+            operator: AND
+            conditions:
+            - type: input_modality
+              name: image_input
+          modelRefs:
+          - model: vision
+            use_reasoning: false
+        - name: default-route
+          description: Everything else goes to the main model.
+          priority: 1
+          rules:
+            operator: AND
+            conditions: []
+          modelRefs:
+          - model: qwen
+            use_reasoning: false
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: llm-gateway
+  namespace: llm
+  annotations:
+    networking.istio.io/service-type: ClusterIP
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 8080
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: semantic-router-extproc
+  namespace: llm
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: llm-gateway
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: GATEWAY
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+    patch:
+      operation: INSERT_FIRST
+      value:
+        name: envoy.filters.http.ext_proc
+        typed_config:
+          '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
+          failure_mode_allow: true
+          allow_mode_override: true
+          message_timeout: 300s
+          processing_mode:
+            request_header_mode: SEND
+            response_header_mode: SEND
+            request_body_mode: BUFFERED
+            response_body_mode: NONE
+            request_trailer_mode: SKIP
+            response_trailer_mode: SKIP
+          grpc_service:
+            envoy_grpc:
+              cluster_name: outbound|50051||semantic-router.llm.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: semantic-router
+  namespace: llm
+spec:
+  host: semantic-router.llm.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: llm-gateway-models
+  namespace: llm
+spec:
+  parentRefs:
+  - name: llm-gateway
+  rules:
+  - backendRefs:
+    - name: llama-server
+      port: 8080
+    timeouts:
+      request: 600s
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+      headers:
+      - type: Exact
+        name: x-selected-model
+        value: qwen
+  - backendRefs:
+    - name: vllm-vision
+      port: 8080
+    timeouts:
+      request: 600s
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+      headers:
+      - type: Exact
+        name: x-selected-model
+        value: vision
+  - backendRefs:
+    - name: llama-server
+      port: 8080
+    timeouts:
+      request: 600s
+    matches:
+    - path:
+        type: PathPrefix
+        value: /

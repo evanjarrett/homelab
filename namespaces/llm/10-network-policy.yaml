@@ -133,3 +133,102 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
+---
+# Semantic router wiring (30-semantic-router.yaml). NOTE: the cluster CNI is
+# plain Flannel, which does not enforce NetworkPolicy; these are written so the
+# router keeps working if enforcement is ever enabled.
+#
+# llm-gateway (Istio Envoy) pods: xDS from istiod, ext_proc to the router,
+# and proxying to the model backends.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-egress
+  namespace: llm
+spec:
+  podSelector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: llm-gateway
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: istio-system
+      ports:
+        - protocol: TCP
+          port: 15012
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: semantic-router
+      ports:
+        - protocol: TCP
+          port: 50051
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [llama-server, vllm-vision, vllm-embed]
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-gateway-to-backends
+  namespace: llm
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [llama-server, vllm-vision, vllm-embed]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: llm-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Router: ext_proc from the gateway; it watches its own ConfigMap through the
+# API server (control planes .161-.163:6443). HF model downloads use the
+# namespace-wide allow-internet-egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-semantic-router
+  namespace: llm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: semantic-router
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: llm-gateway
+      ports:
+        - protocol: TCP
+          port: 50051
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.1.161/32
+        - ipBlock:
+            cidr: 192.168.1.162/32
+        - ipBlock:
+            cidr: 192.168.1.163/32
+      ports:
+        - protocol: TCP
+          port: 6443

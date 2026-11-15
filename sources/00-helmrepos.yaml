@@ -139,3 +139,13 @@ metadata:
 spec:
   url: https://piraeus.io/helm-charts/
   interval: 2h
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: vllm-semantic-router-helmrepo
+  namespace: flux-system
+spec:
+  type: oci
+  url: oci://ghcr.io/vllm-project/charts
+  interval: 2h
