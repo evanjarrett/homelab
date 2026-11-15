@@ -20,6 +20,11 @@ spec:
       retries: 3
   values:
     installCRDs: true
+    # DNS-01 propagation checks over DoH (443) instead of plain :53 to the
+    # Cloudflare authoritative servers, so the egress NetworkPolicy only
+    # needs 443 to the internet.
+    dns01RecursiveNameservers: "https://1.1.1.1/dns-query"
+    dns01RecursiveNameserversOnly: true
     config:
       apiVersion: controller.config.cert-manager.io/v1alpha1
       kind: ControllerConfiguration

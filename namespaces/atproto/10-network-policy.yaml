@@ -22,10 +22,15 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    - namespaceSelector:
-        matchLabels:
           kubernetes.io/metadata.name: gateway
+      podSelector:
+        matchLabels:
+          gateway.networking.k8s.io/gateway-name: jarrett-net
+    ports:
+    - protocol: TCP
+      port: 3000  # atproto-pds
+    - protocol: TCP
+      port: 8080  # hold01
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -37,27 +42,35 @@ spec:
   policyTypes:
   - Egress
   egress:
-  # Allow DNS to kube-system
   - to:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: kube-system
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
-  # Allow DNS to knotdns
-  - to:
-    - namespaceSelector:
+      podSelector:
         matchLabels:
-          kubernetes.io/metadata.name: knotdns
+          k8s-app: kube-dns
     ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external internet but block internal networks (for PDS federation)
+---
+# PDS federation (plc.directory, bsky.network, api/mod.bsky.app, relays) and
+# hold01's S3 (blobs.atcr.io). Public addresses only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet-egress
+  namespace: atproto
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values: [atproto-pds, hold01]
+  policyTypes:
+  - Egress
+  egress:
   - to:
     - ipBlock:
         cidr: 0.0.0.0/0
@@ -70,3 +83,57 @@ spec:
       port: 443
     - protocol: TCP
       port: 80
+---
+# PDS_EMAIL_SMTP_URL (verification / password-reset mail). The exact port lives
+# in the pds Secret; allow both submission ports.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-pds-smtp-egress
+  namespace: atproto
+spec:
+  podSelector:
+    matchLabels:
+      app: atproto-pds
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 192.168.0.0/16
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+    ports:
+    - protocol: TCP
+      port: 465
+    - protocol: TCP
+      port: 587
+---
+# The nightly atproto-backup orchestrator drives kubectl (snapshot, worker Job).
+# The worker's NFS mount is done by the kubelet, not the pod, so it needs no
+# egress. Under Cilium these ipBlocks need `policyCIDRMatchMode: nodes`.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backup-apiserver-egress
+  namespace: atproto
+spec:
+  podSelector:
+    matchExpressions:
+    - key: job-name
+      operator: Exists
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.1.161/32
+    - ipBlock:
+        cidr: 192.168.1.162/32
+    - ipBlock:
+        cidr: 192.168.1.163/32
+    ports:
+    - protocol: TCP
+      port: 6443

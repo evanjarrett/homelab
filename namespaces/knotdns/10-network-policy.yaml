@@ -1,3 +1,6 @@
+# Knot is authoritative-only. It answers DNS from anywhere and sends NOTIFY /
+# serves AXFR to secondaries over port 53; it never speaks HTTPS.
+# TODO: narrow the 53 egress to the secondaries listed in knot.conf.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -19,9 +22,8 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-  # Allow DNS queries from all namespaces
-  - from: []
-    ports:
+  # LAN clients via LoadBalancer (any source).
+  - ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
@@ -37,21 +39,9 @@ spec:
   policyTypes:
   - Egress
   egress:
-  # Allow DNS to upstream servers
-  - to: []
-    ports:
+  # Name resolution plus NOTIFY/AXFR to secondaries.
+  - ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
-  # Allow external internet but block internal networks (for zone updates/DNSSEC)
-  - to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-        except:
-        - 192.168.0.0/16
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-    ports:
-    - protocol: TCP
-      port: 443

@@ -1,0 +1,25 @@
+# The Longhorn chart's own policies (restrictInternalTraffic) don't select
+# longhorn-ui, so the unauthenticated UI/API proxy on longhorn-frontend is open
+# to every pod. Only the jarrett-net gateway (longhorn.j5t.io route) needs it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: longhorn-ui
+  namespace: longhorn-system
+spec:
+  podSelector:
+    matchLabels:
+      app: longhorn-ui
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: gateway
+      podSelector:
+        matchLabels:
+          gateway.networking.k8s.io/gateway-name: jarrett-net
+    ports:
+    - protocol: TCP
+      port: 8000
