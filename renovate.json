@@ -50,11 +50,6 @@
       "automerge": false
     },
     {
-      "description": "Frigate 0.18 needs a config migration, handled by hand in PR #342. Hold Renovate off until that merges, then delete this rule.",
-      "matchPackageNames": ["ghcr.io/blakeblackshear/frigate"],
-      "enabled": false
-    },
-    {
       "description": "Private, self-built images on atcr.io (no Renovate creds; custom tag schemes) — don't track. Only versioned tags trigger lookups; :latest images (e.g. git-summarizer) never complained because Renovate skips them.",
       "matchPackageNames": ["atcr.io/**"],
       "enabled": false
