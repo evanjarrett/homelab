@@ -3,8 +3,11 @@
 # Nothing points here yet; Frigate GenAI is the first intended consumer.
 #
 # Model: Qwen3.5-9B (natively multimodal), online sym_int4 -> 8.2GiB measured
-#   (vision encoder + embeddings stay BF16). Profiling at 32K context left only
-#   0.97GiB for KV; Frigate prompts are ~1-2K tokens, so context is 8K.
+#   (vision encoder + embeddings stay BF16). The batch budget is what costs
+#   activation memory: at the default (= max-model-len, 32K) only 0.97GiB was
+#   left for KV. Capped at 8K batched tokens, ~1.35GiB is free and one full
+#   32K sequence needs ~1.09GiB (hybrid GatedDeltaNet attention is cheap), so
+#   32K context for Frigate chat.
 #   Fallbacks, swap MODEL/SERVED_NAME below:
 #     google/gemma-4-12B-it   (officially listed by Intel; add --dtype float16,
 #                              needs transformers>=5.10.1 on the 1.5 image, #705)
@@ -72,7 +75,7 @@ spec:
                 --host 0.0.0.0 --port 8080 \
                 --quantization sym_int4 \
                 --gpu-memory-utilization 0.75 \
-                --max-model-len 8192 \
+                --max-model-len 32768 \
                 --max-num-batched-tokens 8192 \
                 --max-num-seqs 4 \
                 --enforce-eager \

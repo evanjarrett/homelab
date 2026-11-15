@@ -146,21 +146,29 @@ spec:
         model_size: large
         reindex: false
       # GenAI (Frigate 0.18): genai is a map of named providers, each with the
-      # roles it handles. Qwen3.6-35B-A3B (multimodal) on the Strix Halo
-      # llama-server; it defaults thinking off, so descriptions come back fast
-      # and non-empty. Roles are explicit because the default also includes
-      # `embeddings`, which needs a dedicated embedding model this server
-      # doesn't run; semantic search stays on local Jina below.
+      # roles it handles. Descriptions, review summaries and chat run on
+      # Qwen3.5-9B on an Arc Pro B50 (vllm-vision, OpenAI API; thinking off
+      # server-side; Frigate reads the 32K context from /v1/models).
+      # `llama` (Qwen3.6-35B-A3B on the Strix) is kept with no roles as a
+      # rollback: move the roles back to it. Roles are explicit because the
+      # default also includes `embeddings`; Frigate only does embeddings via
+      # llama.cpp's native /embeddings format, which vLLM doesn't serve, so
+      # semantic search stays on local Jina below.
       # Description prompts are per-camera (cameras.<name>.objects.genai)
       # because they reference each camera's zones.
       genai:
+        b50:
+          provider: openai
+          base_url: http://vllm-vision.llm.svc.cluster.local:8080/v1
+          model: vision
+          roles:
+            - descriptions
+            - chat
         llama:
           provider: llamacpp
           base_url: http://llama-server.llm.svc.cluster.local:8080
           model: qwen3.6-35b
-          roles:
-            - descriptions
-            - chat
+          roles: []
       # GenAI review summaries: a short summary per review item, written by the
       # `descriptions` provider above. Alerts only (the default); detections
       # are noisier and would mean many more LLM calls.
