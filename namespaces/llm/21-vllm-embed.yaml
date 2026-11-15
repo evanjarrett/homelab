@@ -1,0 +1,118 @@
+# POC: multimodal embeddings on the other Arc Pro B50, alongside Frigate.
+#
+# Model: Qwen3-VL-Embedding-8B (Jan 2026), online FP8 -> ~9GB weights.
+#   Text, images, screenshots, video in one vector space (MMEB-V2 77.9;
+#   text MMTEB 67.9 vs 70.6 for the text-only Qwen3-Embedding-8B). Listed by
+#   intel/llm-scaler for FP16/FP8/Int4. MRL: clients may truncate the 4096-dim
+#   output (e.g. 1024) to save index space; pick once, the index depends on it.
+#   Text-only alternative: Qwen/Qwen3-Embedding-4B (FP16 ~8GB).
+#
+# Indexes built on this are derived/rebuildable, so moving to the Altra later
+# only means re-embedding.
+#
+# Placement: hard anti-affinity with vllm-vision -> never two models on one
+# B50 (their --gpu-memory-utilization caps would sum past 100%). With
+# sharedDevNum: 2 each card then holds at most one model + Frigate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-embed
+  namespace: llm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm-embed
+  template:
+    metadata:
+      labels:
+        app: vllm-embed
+    spec:
+      nodeSelector:
+        intel.feature.node.kubernetes.io/gpu: "true"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: vllm-vision
+      containers:
+        - name: vllm
+          image: intel/llm-scaler-vllm:1.5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL
+              value: Qwen/Qwen3-VL-Embedding-8B
+            - name: SERVED_NAME
+              value: embed
+            - name: HF_HOME
+              value: /models/hf
+            - name: VLLM_WORKER_MULTIPROC_METHOD
+              value: spawn
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              exec vllm serve "${MODEL}" \
+                --served-model-name "${SERVED_NAME}" \
+                --host 0.0.0.0 --port 8080 \
+                --runner pooling \
+                --quantization fp8 \
+                --gpu-memory-utilization 0.65 \
+                --max-model-len 8192 \
+                --max-num-batched-tokens 8192 \
+                --no-enable-prefix-caching \
+                --enforce-eager \
+                --trust-remote-code
+          ports:
+            - name: http
+              containerPort: 8080
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 120       # first start downloads ~17GB to NFS
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "1"
+              memory: 16Gi
+              gpu.intel.com/xe: 1
+            limits:
+              cpu: "6"
+              memory: 32Gi
+              gpu.intel.com/xe: 1
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: llama-models
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-embed
+  namespace: llm
+spec:
+  selector:
+    app: vllm-embed
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

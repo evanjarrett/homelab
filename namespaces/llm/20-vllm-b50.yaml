@@ -1,0 +1,130 @@
+# POC: vLLM (Intel llm-scaler build) serving a small vision model on one Arc
+# Pro B50 (16GB), in parallel with llama-server (qwen3.6-35b on the Strix).
+# Nothing points here yet; Frigate GenAI is the first intended consumer.
+#
+# Model: Qwen3.5-9B (natively multimodal), online sym_int4 -> ~6GB weights.
+#   Fallbacks, swap MODEL/SERVED_NAME below:
+#     google/gemma-4-12B-it   (officially listed by Intel; add --dtype float16,
+#                              needs transformers>=5.10.1 on the 1.5 image, #705)
+#     Qwen/Qwen3-VL-8B-Instruct (oldest/most proven on XPU)
+#
+# GPU sharing: the Intel plugin runs sharedDevNum: 2, so this pod and Frigate
+# can share a card. There is NO VRAM isolation -> --gpu-memory-utilization caps
+# vLLM at ~12GB, leaving Frigate's transcode headroom.
+#
+# B50 traps (intel/llm-scaler issues): --enforce-eager avoids torch.compile
+# SYCL JIT crashes (#392). Single card only, no TP.
+#
+# Port 8080 on purpose: allow-frigate-ingress / allow-agent-ingress in
+# 10-network-policy.yaml already admit 8080 to every pod in this namespace.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-vision
+  namespace: llm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm-vision
+  template:
+    metadata:
+      labels:
+        app: vllm-vision
+    spec:
+      nodeSelector:
+        intel.feature.node.kubernetes.io/gpu: "true"
+      affinity:
+        # Prefer the B50 Frigate isn't on; share only when we must.
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                namespaceSelector:
+                  matchLabels:
+                    kubernetes.io/metadata.name: frigate
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: frigate
+      containers:
+        - name: vllm
+          image: intel/llm-scaler-vllm:1.5
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL
+              value: Qwen/Qwen3.5-9B
+            - name: SERVED_NAME
+              value: vision
+            - name: HF_HOME
+              value: /models/hf
+            - name: VLLM_WORKER_MULTIPROC_METHOD
+              value: spawn
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              exec vllm serve "${MODEL}" \
+                --served-model-name "${SERVED_NAME}" \
+                --host 0.0.0.0 --port 8080 \
+                --quantization sym_int4 \
+                --gpu-memory-utilization 0.75 \
+                --max-model-len 32768 \
+                --max-num-seqs 4 \
+                --enforce-eager \
+                --limit-mm-per-prompt '{"image": 4}' \
+                --default-chat-template-kwargs '{"enable_thinking": false}' \
+                --enable-auto-tool-choice --tool-call-parser qwen3_coder \
+                --trust-remote-code
+          ports:
+            - name: http
+              containerPort: 8080
+          # First start downloads ~19GB of BF16 weights to NFS, then quantizes.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 120       # up to 30min
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "2"
+              memory: 24Gi
+              gpu.intel.com/xe: 1
+            limits:
+              cpu: "8"
+              memory: 48Gi
+              gpu.intel.com/xe: 1
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: llama-models     # shared NFS; HF cache under hf/
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-vision
+  namespace: llm
+spec:
+  selector:
+    app: vllm-vision
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
