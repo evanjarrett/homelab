@@ -186,7 +186,11 @@ spec:
         typed_config:
           '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
           failure_mode_allow: true
-          allow_mode_override: true
+          # false: the router must not switch response-body processing on. Its
+          # strict stream decoder rejects llama.cpp's `timings` field
+          # ("upstream response JSON contains a non-canonical field"), which
+          # broke every streamed qwen request. Routing is request-side only.
+          allow_mode_override: false
           message_timeout: 300s
           processing_mode:
             request_header_mode: SEND
