@@ -160,6 +160,9 @@ spec:
         b50:
           provider: openai
           base_url: http://vllm-vision.llm.svc.cluster.local:8080/v1
+          # vLLM runs without --api-key, but the openai client refuses to
+          # start without one ("The api_key client option must be set").
+          api_key: unused
           model: vision
           roles:
             - descriptions
