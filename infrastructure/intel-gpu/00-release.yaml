@@ -62,3 +62,26 @@ spec:
       retries: 3
   uninstall:
     keepHistory: false
+  # The chart's Services select only `control-plane: controller-manager`, which
+  # the AMD GPU operator's controller (also kube-system, also kubebuilder) carries
+  # too. The webhook Service then load-balances onto the AMD pod, ~half of all
+  # GpuDevicePlugin admissions get "connection refused", and every GPU plugin
+  # upgrade fails. Add a unique label to the pod and to both selectors (the
+  # Deployment's own immutable selector is left alone).
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: inteldeviceplugins-controller-manager
+            patch: |
+              - op: add
+                path: /spec/template/metadata/labels/app.kubernetes.io~1name
+                value: intel-device-plugins-operator
+          - target:
+              kind: Service
+              name: inteldeviceplugins-(webhook-service|controller-manager-metrics-service)
+            patch: |
+              - op: add
+                path: /spec/selector/app.kubernetes.io~1name
+                value: intel-device-plugins-operator
