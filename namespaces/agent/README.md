@@ -47,3 +47,17 @@ first boot.
    `40-quota.yaml`.
 7. Leftover live objects not in git that Letta-era Jett created
    (`jett-keepalive`, if still present): review and delete by hand.
+
+## Seeing Hermes tool calls in Open WebUI
+
+Hermes reports tool activity as custom `event: hermes.tool.progress` SSE frames,
+which Open WebUI's plain OpenAI connection drops, so the `jett` model only shows
+the final answer. `open-webui-functions/hermes_pipe.py` is an Open WebUI Pipe that
+calls Hermes itself and turns those frames into live status lines
+("💻 terminal: hostname + 1 command" → "✓").
+
+Install (needs the Open WebUI admin account): Admin Panel → Functions → **+** →
+paste the file → Save → toggle it on. It shows up as **Jett (Hermes Agent)**. It
+reads the Hermes key from the pod's `OPENAI_API_KEYS`, so no valve needs setting.
+Optionally hide the raw `jett` model (Admin Panel → Settings → Models) to avoid
+two entries. Open WebUI keeps functions in its database: re-paste after edits.
