@@ -62,18 +62,18 @@ spec:
             - |
               apk add --no-cache curl
               cd /models
-              BASE="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main"
-              # Primary model: Qwen3.6-35B-A3B — MoE (35B/3B-active), multimodal,
-              # 262K native ctx via hybrid Gated-DeltaNet linear attention.
-              # Replaces qwen3-vl-8b (vision) + qwen3-coder-30b (coding) + gemma-4-31b.
-              if [ ! -f "Qwen3.6-35B-A3B-UD-Q6_K.gguf" ]; then
-                echo "Downloading Qwen3.6-35B-A3B UD-Q6_K..."
-                curl -L -# -o Qwen3.6-35B-A3B-UD-Q6_K.gguf "$BASE/Qwen3.6-35B-A3B-UD-Q6_K.gguf"
+              BASE="https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main"
+              # Main model: Qwen3.8-27B dense (hybrid Gated-DeltaNet), 262K ctx.
+              # Text-only here: images go to Qwen3.5-9B on a B50 (vllm-vision)
+              # via the semantic router, so no mmproj is loaded.
+              if [ ! -f "Qwen3.8-27B-UD-Q6_K.gguf" ]; then
+                echo "Downloading Qwen3.8-27B UD-Q6_K..."
+                curl -fL -# -o Qwen3.8-27B-UD-Q6_K.gguf.part "$BASE/Qwen3.8-27B-UD-Q6_K.gguf" && mv Qwen3.8-27B-UD-Q6_K.gguf.part Qwen3.8-27B-UD-Q6_K.gguf
               fi
-              # Vision projector (mmproj) — required for Frigate image analysis.
-              if [ ! -f "mmproj-Qwen3.6-35B-A3B-F16.gguf" ]; then
-                echo "Downloading Qwen3.6 mmproj..."
-                curl -L -# -o mmproj-Qwen3.6-35B-A3B-F16.gguf "$BASE/mmproj-F16.gguf"
+              # MTP draft head for speculative decoding (~2x decode on this box).
+              if [ ! -f "mtp-Qwen3.8-27B-Q4_0.gguf" ]; then
+                echo "Downloading Qwen3.8-27B MTP head..."
+                curl -fL -# -o mtp-Qwen3.8-27B-Q4_0.gguf.part "$BASE/MTP/mtp-Qwen3.8-27B-Q4_0.gguf" && mv mtp-Qwen3.8-27B-Q4_0.gguf.part mtp-Qwen3.8-27B-Q4_0.gguf
               fi
               echo "Models ready."
           volumeMounts:
@@ -86,28 +86,36 @@ spec:
           command: ["llama-server"]
           args:
             - "--model"
-            - "/models/Qwen3.6-35B-A3B-UD-Q6_K.gguf"
-            - "--mmproj"
-            - "/models/mmproj-Qwen3.6-35B-A3B-F16.gguf"
+            - "/models/Qwen3.8-27B-UD-Q6_K.gguf"
             - "--alias"
-            - "qwen3.6-35b"             # model id clients reference (Frigate, git-summarizer, Sure, agent)
+            - "qwen3.8-27b,qwen3.6-35b"  # old name kept so existing clients (HA, Sure, git-summarizer, agent) keep working
             - "-ngl"
             - "999"                     # offload all layers to GPU
             - "-fa"
             - "on"                      # flash attention
-            - "--jinja"                 # parse model template -> OpenAI tool_calls (Sure / HA Assist / agent)
-            - "--reasoning"             # default thinking OFF: snappy + non-empty for Frigate/HA/Sure/git-sum.
-            - "off"                     #   agent/coding opt back in per-request with chat_template_kwargs enable_thinking:true
+            - "--jinja"                 # parse model template -> OpenAI tool_calls
+            - "--chat-template-file"    # official template + one patch: allow later system messages
+            - "/templates/chat_template.jinja"  #   (HA injects context mid-conversation; stock template raises)
+            - "--reasoning"             # default thinking OFF; agent/coding opt in per request with
+            - "off"                     #   chat_template_kwargs enable_thinking:true
+            - "--spec-type"             # MTP speculative decoding: 19-20 tok/s vs ~10 without,
+            - "draft-mtp"               #   ~65% draft acceptance (measured 2026-11-15)
+            - "--model-draft"
+            - "/models/mtp-Qwen3.8-27B-Q4_0.gguf"
+            - "--spec-draft-ngl"
+            - "all"
+            - "--spec-draft-n-max"
+            - "2"
+            - "--cache-ram"             # host-RAM prompt cache OFF: with MTP it crashes on the 2nd request
+            - "0"                       #   (GGML_ASSERT tensor not allocated in state_seq_get_data, build 12418)
             - "-c"
             - "1048576"                 # total KV budget = 4 slots x 262144 native ctx
             - "-np"
-            - "4"                       # 4 server slots (Frigate bg + agent + interactive + spare)
+            - "4"                       # 4 server slots
             - "--no-kv-unified"         # private per-slot KV: each hard-capped at native 262K
-            - "--slot-prompt-similarity"  # send each request to the slot whose cached prompt matches
-            - "0.5"                       #   best -> agent turns reuse their warm slot; Frigate's
-            - "--cache-reuse"             #   (dissimilar) vision prompts land elsewhere, not evicting it.
-            - "256"                       # also reuse KV across small mid-prompt diffs via shifting.
-            - "-t"                      #   -> no >262K extrapolation, no cross-slot context hogging
+            - "--slot-prompt-similarity"  # send each request to the slot whose cached prompt matches best
+            - "0.5"
+            - "-t"
             - "16"
             - "--host"
             - "0.0.0.0"
@@ -151,6 +159,9 @@ spec:
               mountPath: /dev/kfd
             - name: shm
               mountPath: /dev/shm
+            - name: chat-template
+              mountPath: /templates
+              readOnly: true
       volumes:
         - name: models
           persistentVolumeClaim:
@@ -161,6 +172,9 @@ spec:
         - name: kfd
           hostPath:
             path: /dev/kfd
+        - name: chat-template
+          configMap:
+            name: qwen38-chat-template
         - name: shm
           emptyDir:
             medium: Memory
