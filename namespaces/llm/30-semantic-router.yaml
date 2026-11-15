@@ -8,13 +8,6 @@
 #
 # Endpoint: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1 in-cluster,
 # https://llm.j5t.io/v1 on the LAN (route in 10-httproute.yaml).
-# SHADOW MODE (2026-11-15): decisions named shadow-* are evaluated and counted
-# (llm_decision_match_total / llm_signal_match_total, scraped into VictoriaMetrics)
-# but route exactly as before (image -> vision, else qwen). Each shadow decision's
-# description says where it WOULD route. Grafana/VM: sum by (decision_name)
-# (increase(llm_decision_match_total[1d])); per-request detail in the router's
-# routing_decision log lines (kubectl -n llm logs deploy/semantic-router).
-#
 # Clients send model "auto" (or "vllm-sr/auto") to be routed; a request naming a
 # configured model ("qwen", "vision") goes straight to it.
 #
@@ -52,19 +45,22 @@ spec:
       tag: v0.4.0
     persistence:
       enabled: true
+      # Longhorn only has v2 (SPDK block) disks; the v1 `longhorn` class can't
+      # place replicas anywhere.
       storageClassName: longhorn-v2
       size: 10Gi
+    # v2 volumes only attach where a v2 instance-manager runs.
     nodeSelector:
       storage.longhorn-v2: 'true'
     resources:
       requests:
-        cpu: 500m
-        memory: 3Gi
+        cpu: 250m
+        memory: 1Gi
       limits:
-        cpu: '4'
-        memory: 6Gi
+        cpu: '2'
+        memory: 4Gi
     configMap:
-      applyValuesRevision: '3'
+      applyValuesRevision: '2'
     configOverride:
       version: v0.3
       listeners:
@@ -74,6 +70,7 @@ spec:
         timeout: 300s
       global:
         router:
+          # list qwen/vision in /v1/models too, not just the auto names
           include_config_models_in_list: true
           auto_model_names:
           - auto
@@ -85,21 +82,6 @@ spec:
         integrations:
           tools:
             enabled: false
-        model_catalog:
-          system:
-            pii_classifier: models/Vela-1.0-Encoder-307M-PII
-          embeddings:
-            semantic:
-              mmbert_model_path: models/Vela-1.0-Encoder-307M-Embedding
-              use_cpu: true
-              embedding_config:
-                backend: candle
-                model_type: mmbert
-                preload_embeddings: true
-                full_context: false
-                target_dimension: 0
-                target_layer: 22
-                min_score_threshold: 0.45
       providers:
         defaults:
           model: qwen
@@ -138,70 +120,12 @@ spec:
           - text
         signals:
           input_modality:
-          - description: Request contains at least one image content part.
+          - name: image_input
+            description: Request contains at least one image content part.
             modality: image
-            name: image_input
-          pii:
-          - name: personal_data
-            threshold: 0.85
-            include_history: true
-            description: 'Personal data anywhere in the conversation: must never leave
-              the house.'
-          context:
-          - name: fits_fastlane
-            min_tokens: '0'
-            max_tokens: 24K
-            description: Fits the B50 vision model's 32K window with room to answer.
-          - name: beyond_local
-            min_tokens: 128K
-            max_tokens: 1M
-            description: Long enough that local models get slow or run out of window.
-          keywords:
-          - name: escalate_request
-            operator: OR
-            case_sensitive: false
-            keywords:
-            - use claude
-            - ask claude
-            - escalate
-            - think hard
-            - think harder
-            - deep dive
-          conversation:
-          - name: has_tools
-            description: Request defines at least one tool.
-            feature:
-              type: count
-              source:
-                type: tool_definition
-            predicate:
-              gte: 1
-          complexity:
-          - name: difficulty
-            threshold: 0.1
-            description: Easy vs hard household / homelab requests.
-            hard:
-              candidates:
-              - debug why this kubernetes deployment keeps crashing and propose a
-                fix
-              - write a program that parses these logs and reports anomalies
-              - analyze the root cause of this failure
-              - compare multiple design tradeoffs and recommend one
-              - plan a multi-step migration with rollback steps
-              - refactor this code and explain the changes
-              - solve this step by step and show your reasoning
-            easy:
-              candidates:
-              - what's the weather like today
-              - summarize this email briefly
-              - give this chat a short title
-              - rewrite this sentence to sound friendlier
-              - what time does the store close
-              - translate this to spanish
-              - answer briefly
         decisions:
         - name: vision-request
-          description: 'LIVE: image-bearing requests go to the B50 vision model.'
+          description: Image-bearing requests go to the B50 vision model.
           priority: 1000
           rules:
             operator: AND
@@ -211,68 +135,8 @@ spec:
           modelRefs:
           - model: vision
             use_reasoning: false
-        - name: shadow-pii-local
-          description: 'SHADOW: personal data -> would be pinned local (never Claude).
-            Routes to qwen.'
-          priority: 900
-          rules:
-            operator: AND
-            conditions:
-            - type: pii
-              name: personal_data
-          modelRefs:
-          - model: qwen
-            use_reasoning: false
-        - name: shadow-claude-explicit
-          description: 'SHADOW: user asked to escalate -> would go to Claude. Routes
-            to qwen.'
-          priority: 700
-          rules:
-            operator: AND
-            conditions:
-            - type: keyword
-              name: escalate_request
-          modelRefs:
-          - model: qwen
-            use_reasoning: false
-        - name: shadow-claude-long
-          description: 'SHADOW: >=128K tokens -> would go to Claude. Routes to qwen.'
-          priority: 600
-          rules:
-            operator: AND
-            conditions:
-            - type: context
-              name: beyond_local
-          modelRefs:
-          - model: qwen
-            use_reasoning: false
-        - name: shadow-claude-hard
-          description: 'SHADOW: hard request -> would go to Claude. Routes to qwen.'
-          priority: 500
-          rules:
-            operator: AND
-            conditions:
-            - type: complexity
-              name: difficulty:hard
-          modelRefs:
-          - model: qwen
-            use_reasoning: false
-        - name: shadow-fastlane
-          description: 'SHADOW: easy and short -> would go to the B50 fast lane. Routes
-            to qwen.'
-          priority: 400
-          rules:
-            operator: AND
-            conditions:
-            - type: complexity
-              name: difficulty:easy
-            - type: context
-              name: fits_fastlane
-          modelRefs:
-          - model: qwen
-            use_reasoning: false
         - name: default-route
-          description: 'LIVE: everything else goes to the main model.'
+          description: Everything else goes to the main model.
           priority: 1
           rules:
             operator: AND
@@ -280,15 +144,6 @@ spec:
           modelRefs:
           - model: qwen
             use_reasoning: false
-  postRenderers:
-  - kustomize:
-      patches:
-      - target:
-          kind: Service
-          name: semantic-router-metrics
-        patch: "- op: add\n  path: /metadata/annotations/prometheus.io~1scrape\n \
-          \ value: \"true\"\n- op: add\n  path: /metadata/annotations/prometheus.io~1port\n\
-          \  value: \"9190\"\n"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -331,6 +186,10 @@ spec:
         typed_config:
           '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
           failure_mode_allow: true
+          # false: the router must not switch response-body processing on. Its
+          # strict stream decoder rejects llama.cpp's `timings` field
+          # ("upstream response JSON contains a non-canonical field"), which
+          # broke every streamed qwen request. Routing is request-side only.
           allow_mode_override: false
           message_timeout: 300s
           processing_mode:
