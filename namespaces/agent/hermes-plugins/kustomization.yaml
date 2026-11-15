@@ -1,0 +1,7 @@
+# Plugin SOURCES, not manifests. Flux's auto-generated kustomization for ./namespaces walks every
+# *.yaml and fails on non-Kubernetes files (plugin.yaml); a directory holding a kustomization.yaml
+# is added as one kustomize resource and not descended into. This one renders nothing: what
+# deploys is the generated ConfigMap ../51-hermes-fastmail-plugin.yaml (README: regenerate).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

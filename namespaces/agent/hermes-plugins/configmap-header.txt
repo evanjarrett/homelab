@@ -1,0 +1,6 @@
+# GENERATED from hermes-plugins/fastmail_jmap/ (header: hermes-plugins/configmap-header.txt).
+# Do not edit here. Regenerate after changing the source, from namespaces/agent/:
+#   kubectl create configmap hermes-fastmail-plugin -n agent --from-file=hermes-plugins/fastmail_jmap/ \
+#     --dry-run=client -o yaml | cat hermes-plugins/configmap-header.txt - > 51-hermes-fastmail-plugin.yaml
+# The hermes container copies these files (minus test_*) into $HERMES_HOME/plugins/fastmail_jmap
+# at start, so a change takes effect on the next pod restart.

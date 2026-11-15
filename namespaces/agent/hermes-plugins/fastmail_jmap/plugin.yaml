@@ -1,0 +1,37 @@
+# Hermes user plugin: talk to the agent by email through Fastmail's JMAP API.
+# Installed into $HERMES_HOME/plugins/fastmail_jmap/ by the hermes container's startup script
+# (from ConfigMap hermes-fastmail-plugin) and enabled via plugins.enabled in config.yaml.
+name: fastmail_jmap
+label: Fastmail (JMAP)
+kind: platform
+version: 1.0.0
+description: >
+  Fastmail JMAP gateway adapter: push (EventSource) + 60s poll on the Inbox, replies as
+  threaded emails via EmailSubmission. Only allow-listed, DMARC/SPF/DKIM-authenticated senders.
+author: homelab
+requires_env:
+  - name: FASTMAIL_API_TOKEN
+    description: "Fastmail API token with Email (read/write) and Email submission scopes"
+    prompt: "Fastmail API token"
+    password: true
+  - name: FASTMAIL_ADDRESS
+    description: "The agent's own address (must be a sending identity on the account)"
+    prompt: "Agent email address"
+    password: false
+  - name: FASTMAIL_ALLOWED_USERS
+    description: "Comma-separated lowercase sender addresses allowed to talk to the agent (required)"
+    prompt: "Allowed senders"
+    password: false
+optional_env:
+  - name: FASTMAIL_AUTHSERV_ID
+    description: "Trusted authserv-id(s) of the topmost Authentication-Results; comma list, '.suffix' entries match subdomains (default .messagingengine.com)"
+    prompt: "Trusted authserv-id(s)"
+    password: false
+  - name: FASTMAIL_HOME_ADDRESS
+    description: "Address for cron / notification delivery"
+    prompt: "Home address"
+    password: false
+  - name: FASTMAIL_SESSION_URL
+    description: "JMAP session URL (default https://api.fastmail.com/jmap/session)"
+    prompt: "JMAP session URL"
+    password: false

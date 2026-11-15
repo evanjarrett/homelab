@@ -39,6 +39,7 @@
 #                                       WebUI can't authenticate until the Secret
 #                                       exists and the key in .env is removed).
 #   hermes-platforms   (optional) every key becomes an env var; see below.
+#   hermes-fastmail    (optional) FASTMAIL_* for the fastmail_jmap plugin below.
 #
 # Messaging platforms (all off unless their keys exist in hermes-platforms):
 #   Discord   DISCORD_BOT_TOKEN, DISCORD_ALLOWED_USERS (or DISCORD_ALLOWED_ROLES)
@@ -48,10 +49,19 @@
 #   Email     EMAIL_ADDRESS, EMAIL_PASSWORD, EMAIL_IMAP_HOST, EMAIL_IMAP_PORT,
 #             EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_ALLOWED_USERS,
 #             EMAIL_AUTHSERV_ID
+#   Fastmail  (user plugin fastmail_jmap, Secret hermes-fastmail, see README):
+#             FASTMAIL_API_TOKEN, FASTMAIL_ADDRESS, FASTMAIL_ALLOWED_USERS,
+#             optional FASTMAIL_AUTHSERV_ID, FASTMAIL_HOME_ADDRESS, FASTMAIL_SESSION_URL.
+#             Stays off until token + address + a non-empty allowlist exist.
 #   Without an allowlist (or GATEWAY_ALLOW_ALL_USERS=true) a platform refuses
 #   everyone. Restart the pod after changing the Secret (env, not files).
 #   Note: $HERMES_HOME/.env is loaded with override=True, so a value written there
 #   by `hermes config set` wins over the pod env.
+#
+# User plugins: ConfigMap hermes-fastmail-plugin (51-hermes-fastmail-plugin.yaml,
+# generated from hermes-plugins/fastmail_jmap/) is mounted read-only and copied into
+# $HERMES_HOME/plugins/fastmail_jmap on every start (a uid-10000-owned copy, replacing the
+# previous one). Hermes loads non-bundled plugins only when listed in plugins.enabled (seed).
 #
 # kubectl: the image has none. The init container drops a checksum-verified
 # static kubectl into /opt/data/.local/bin (already on the image's PATH). It runs
@@ -97,6 +107,25 @@ data:
       backend: local
       cwd: /opt/data/hermes/workspace
       timeout: 180
+    # User (non-bundled) plugins are opt-in. fastmail_jmap only registers the
+    # platform; it stays disabled until the hermes-fastmail Secret supplies
+    # FASTMAIL_API_TOKEN + FASTMAIL_ADDRESS + FASTMAIL_ALLOWED_USERS.
+    plugins:
+      enabled:
+        - fastmail_jmap
+    # Below: live edits pulled back from config.yaml (Hermes wrote these).
+    telemetry:
+      shared_metrics:
+        enabled: false
+        send: false
+        offer_version: 2
+    _config_version: 53
+    mcp_servers:
+      fastmail:
+        url: https://api.fastmail.com/mcp
+        connect_timeout: 6.0
+        auth: oauth
+        enabled: false
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -225,6 +254,20 @@ spec:
                 echo "[seed] config.yaml updated from hermes-config ConfigMap"
               fi
               mkdir -p "$HERMES_HOME/workspace"
+              # User plugins from ConfigMaps: fresh uid-owned copies (cp -L: the
+              # mount's files are root-owned symlinks). Tests are not installed.
+              for src in /etc/hermes-plugins/*/; do
+                [ -f "$src/plugin.yaml" ] || continue
+                name="$(basename "$src")"
+                dst="$HERMES_HOME/plugins/$name"
+                rm -rf "$dst.tmp" && mkdir -p "$dst.tmp"
+                for f in "$src"*; do
+                  case "${f##*/}" in test_*) continue ;; esac
+                  cp -L "$f" "$dst.tmp/"
+                done
+                rm -rf "$dst" && mv "$dst.tmp" "$dst"
+                echo "[plugins] installed $name"
+              done
               exec /opt/hermes/docker/entrypoint-dispatch.sh gateway run
           env:
             - name: HERMES_HOME
@@ -250,6 +293,10 @@ spec:
             # Messaging platform credentials; see the header for the keys.
             - secretRef:
                 name: hermes-platforms
+                optional: true
+            # Fastmail JMAP plugin (FASTMAIL_*); absent -> platform stays off.
+            - secretRef:
+                name: hermes-fastmail
                 optional: true
           ports:
             - name: api
@@ -280,6 +327,9 @@ spec:
             - name: seed
               mountPath: /etc/hermes-seed
               readOnly: true
+            - name: plugin-fastmail
+              mountPath: /etc/hermes-plugins/fastmail_jmap
+              readOnly: true
             # s6/XDG runtime dirs the stage2 hook expects to create.
             - name: tmp
               mountPath: /tmp
@@ -290,6 +340,9 @@ spec:
         - name: seed
           configMap:
             name: hermes-config
+        - name: plugin-fastmail
+          configMap:
+            name: hermes-fastmail-plugin
         - name: tmp
           emptyDir:
             sizeLimit: 2Gi
