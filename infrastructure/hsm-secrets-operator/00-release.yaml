@@ -96,6 +96,9 @@ spec:
         - name: letta-ws-token
           namespace: agent
           syncInterval: 300
+        - name: hermes-api-key
+          namespace: agent
+          syncInterval: 300
         - name: grafana-login
           namespace: monitoring
           syncInterval: 300
