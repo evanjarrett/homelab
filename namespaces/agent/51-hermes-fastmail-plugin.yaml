@@ -606,7 +606,14 @@ data:
                 and logic.parse_address_list(_env("FASTMAIL_ALLOWED_USERS"))):
             return None
         seed = seed_extra_from_env((("FASTMAIL_ADDRESS", "address", None),), home_env="FASTMAIL_HOME_ADDRESS")
-        return seed or {"address": _env("FASTMAIL_ADDRESS")}
+        seed = seed or {"address": _env("FASTMAIL_ADDRESS")}
+        # /sethome stores the thread too (FASTMAIL_HOME_ADDRESS_THREAD_ID in $HERMES_HOME/.env); the
+        # core seed only restores chat_id + name, so put the thread back or home-channel mail starts a
+        # new thread after every restart / config re-seed.
+        thread = _env("FASTMAIL_HOME_ADDRESS_THREAD_ID")
+        if thread and isinstance(seed.get("home_channel"), dict):
+            seed["home_channel"]["thread_id"] = thread
+        return seed
 
 
     _PLATFORM_HINT = (
@@ -1146,6 +1153,11 @@ data:
         forwarded message as a fenced, explicitly untrusted data block. The fence carries a random
         nonce so forwarded text cannot forge an early end-of-block."""
         nonce = nonce or secrets.token_hex(6)
+        # A bare gateway slash command (/sethome, /new, ...) must reach the gateway verbatim: it only
+        # recognises commands at the very start of the text, so no [Subject:] prefix for those.
+        command = (own_text or "").strip()
+        if not forwards and command.startswith("/") and len(command.splitlines()) == 1 and len(command) <= 200:
+            return command
         parts = []
         if subject and not is_reply:
             parts.append(f"[Subject: {subject}]")
@@ -1702,6 +1714,16 @@ data:
                ("Authentication-Results", f"{MX}; dmarc=pass header.from=example.com")]
         ok, why = gate(meta_from_headers(raw))
         assert not ok and "not trusted" in why, why
+
+
+    @test
+    def slash_command_passthrough():
+        assert logic.compose_prompt("Jett notifications", "  /sethome \n", [], is_reply=False) == "/sethome"
+        # with forwards or extra lines it is a normal message
+        p = logic.compose_prompt("s", "/sethome\nand summarize", [], is_reply=False)
+        assert p.startswith("[Subject: s]")
+        p = logic.compose_prompt("s", "/new", [{"from": "x@example.org", "body": "hi"}], is_reply=False)
+        assert "FORWARDED_EMAIL" in p
 
 
     def main() -> int:

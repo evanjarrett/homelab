@@ -287,6 +287,11 @@ def compose_prompt(subject: str, own_text: str, forwards: list[dict[str, str]], 
     forwarded message as a fenced, explicitly untrusted data block. The fence carries a random
     nonce so forwarded text cannot forge an early end-of-block."""
     nonce = nonce or secrets.token_hex(6)
+    # A bare gateway slash command (/sethome, /new, ...) must reach the gateway verbatim: it only
+    # recognises commands at the very start of the text, so no [Subject:] prefix for those.
+    command = (own_text or "").strip()
+    if not forwards and command.startswith("/") and len(command.splitlines()) == 1 and len(command) <= 200:
+        return command
     parts = []
     if subject and not is_reply:
         parts.append(f"[Subject: {subject}]")

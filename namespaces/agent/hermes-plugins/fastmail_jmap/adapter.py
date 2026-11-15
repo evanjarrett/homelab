@@ -591,7 +591,14 @@ def _env_enablement() -> Optional[dict]:
             and logic.parse_address_list(_env("FASTMAIL_ALLOWED_USERS"))):
         return None
     seed = seed_extra_from_env((("FASTMAIL_ADDRESS", "address", None),), home_env="FASTMAIL_HOME_ADDRESS")
-    return seed or {"address": _env("FASTMAIL_ADDRESS")}
+    seed = seed or {"address": _env("FASTMAIL_ADDRESS")}
+    # /sethome stores the thread too (FASTMAIL_HOME_ADDRESS_THREAD_ID in $HERMES_HOME/.env); the
+    # core seed only restores chat_id + name, so put the thread back or home-channel mail starts a
+    # new thread after every restart / config re-seed.
+    thread = _env("FASTMAIL_HOME_ADDRESS_THREAD_ID")
+    if thread and isinstance(seed.get("home_channel"), dict):
+        seed["home_channel"]["thread_id"] = thread
+    return seed
 
 
 _PLATFORM_HINT = (

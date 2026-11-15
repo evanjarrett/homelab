@@ -447,6 +447,16 @@ def untrusted_topmost_run_fails():
     assert not ok and "not trusted" in why, why
 
 
+@test
+def slash_command_passthrough():
+    assert logic.compose_prompt("Jett notifications", "  /sethome \n", [], is_reply=False) == "/sethome"
+    # with forwards or extra lines it is a normal message
+    p = logic.compose_prompt("s", "/sethome\nand summarize", [], is_reply=False)
+    assert p.startswith("[Subject: s]")
+    p = logic.compose_prompt("s", "/new", [{"from": "x@example.org", "body": "hi"}], is_reply=False)
+    assert "FORWARDED_EMAIL" in p
+
+
 def main() -> int:
     failed = 0
     for fn in TESTS:
