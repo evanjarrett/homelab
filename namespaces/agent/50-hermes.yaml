@@ -8,7 +8,7 @@
 #     WebUI (60-open-webui.yaml) uses as its main "agent" connection, plus any
 #     messaging platforms enabled through the optional hermes-platforms Secret.
 #   - Tools run in-container (terminal.backend: local), as uid 10000, no caps.
-#   - All state (HERMES_HOME = /opt/data: config.yaml, .env, sessions, memory,
+#   - All state (HERMES_HOME = /opt/data/hermes, see the migrate note below: config.yaml, .env, sessions, memory,
 #     skills, logs) lives on the longhorn-v2 PVC.
 #
 # Image: the official multi-arch (amd64+arm64) nousresearch/hermes-agent from
@@ -73,9 +73,9 @@ spec:
 # Seed config for $HERMES_HOME/config.yaml. Hermes rewrites config.yaml itself
 # (`hermes config set`, `/model`, its config migrations), so this is seed-on-
 # change rather than overwrite-every-boot: the startup script copies it over only
-# when this content changes (sha in /opt/data/.config-seed-sha), keeping a backup
+# when this content changes (sha in $HERMES_HOME/.config-seed-sha), keeping a backup
 # of the previous file. Pull live edits back into git before changing it:
-#   kubectl -n agent exec deploy/hermes -- cat /opt/data/config.yaml
+#   kubectl -n agent exec deploy/hermes -- cat /opt/data/hermes/config.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -95,7 +95,7 @@ data:
       context_length: 262144
     terminal:
       backend: local
-      cwd: /opt/data/workspace
+      cwd: /opt/data/hermes/workspace
       timeout: 180
 ---
 apiVersion: apps/v1
@@ -196,6 +196,23 @@ spec:
           command: ["/bin/sh", "-ec"]
           args:
             - |
+              # HERMES_HOME is a subdirectory, not the volume root: ext4's root dir
+              # is owned by uid 0, and Hermes's CLI refuses a home it doesn't own
+              # ("unsafe_control_path ... owned by uid 0"). restricted PSA allows no
+              # root chown, but a directory created here is always uid 10000.
+              # One-time move of state that predates this from /opt/data. HOME
+              # stays /opt/data (.kube, .local/bin with kubectl are HOME-anchored).
+              if [ ! -d "$HERMES_HOME" ]; then
+                mkdir -p "$HERMES_HOME.tmp"
+                for e in /opt/data/* /opt/data/.[!.]*; do
+                  [ -e "$e" ] || continue
+                  case "${e##*/}" in hermes|hermes.tmp|.local|.kube|lost+found) continue ;; esac
+                  mv "$e" "$HERMES_HOME.tmp/"
+                done
+                mv "$HERMES_HOME.tmp" "$HERMES_HOME"
+                echo "[migrate] moved existing state into $HERMES_HOME"
+              fi
+              chmod 0750 "$HERMES_HOME"
               seed=/etc/hermes-seed/config.yaml
               want="$(sha256sum "$seed" | cut -d' ' -f1)"
               have="$(cat "$HERMES_HOME/.config-seed-sha" 2>/dev/null || true)"
@@ -210,6 +227,8 @@ spec:
               mkdir -p "$HERMES_HOME/workspace"
               exec /opt/hermes/docker/entrypoint-dispatch.sh gateway run
           env:
+            - name: HERMES_HOME
+              value: /opt/data/hermes
             - name: HERMES_GATEWAY_NO_SUPERVISE
               value: "1"
             - name: API_SERVER_ENABLED
