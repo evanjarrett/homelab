@@ -110,6 +110,13 @@ data:
     # User (non-bundled) plugins are opt-in. fastmail_jmap only registers the
     # platform; it stays disabled until the hermes-fastmail Secret supplies
     # FASTMAIL_API_TOKEN + FASTMAIL_ADDRESS + FASTMAIL_ALLOWED_USERS.
+    # Email gets a slim toolset: forwarded mail is untrusted input, so no shell, files,
+    # code execution, browser or desktop control from that platform, and ~6.5K fewer
+    # tool-schema tokens per turn (40K -> 14K chars measured). Other platforms (CLI,
+    # Open WebUI/api_server) keep their defaults. todo/session_search/cronjob are
+    # offered on demand via tool_search.
+    platform_toolsets:
+      fastmail: [web, vision, skills, todo, memory, session_search, clarify, cronjob]
     plugins:
       enabled:
         - fastmail_jmap
