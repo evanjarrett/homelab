@@ -31,14 +31,10 @@ first boot.
 2. Check Hermes: `kubectl -n agent logs deploy/hermes` (look for the API server
    listening on 0.0.0.0:8642), then
    `kubectl -n agent exec deploy/hermes -- curl -s localhost:8642/health`.
-3. Delete the old untracked chat stack. None of it is in git, so Flux won't do it:
-   ```sh
-   kubectl -n agent delete httproute agent-gateway-route   # frees chat.j5t.io
-   kubectl -n agent delete deploy/agent-gateway svc/agent-gateway
-   kubectl -n agent delete pvc agent-gateway-data          # after checking nothing in it is needed
-   ```
-   Until the route is deleted, the older `agent-gateway-route` keeps winning
-   `chat.j5t.io` over `chat-tls-route`.
+3. ~~Delete the old untracked chat stack~~ — done 2026-11-15: `agent-gateway`
+   (Deployment, Service, PVC `agent-gateway-data`, HTTPRoute `agent-gateway-route`),
+   `jett-watcher-config` and the `fastmail-api-token` / `fastmail-jmap-token`
+   Secrets were deleted. chat.j5t.io now serves Open WebUI.
 4. Open https://chat.j5t.io right away and create the admin account (the first
    sign-up becomes admin). Then set `ENABLE_SIGNUP=false` or approve users by hand.
 5. Carry over anything worth keeping from Letta (memory blocks / memfs repos on
@@ -50,5 +46,4 @@ first boot.
    `00-namespace.yaml` comments that mention letta-code, and the baseline in
    `40-quota.yaml`.
 7. Leftover live objects not in git that Letta-era Jett created
-   (`jett-keepalive`, `jett-watcher-config`, `fastmail-*` secrets): review them and
-   delete them by hand.
+   (`jett-keepalive`, if still present): review and delete by hand.

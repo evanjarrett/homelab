@@ -1,8 +1,8 @@
 # Hard ceiling on what the agent namespace (i.e. Jett) can consume in aggregate.
 # Managed here, not by Jett: the `edit` role it holds cannot modify quotas.
 #
-# Baseline today: letta-code (req 100m/256Mi, lim 2/2Gi) + agent-gateway
-# (req 50m/128Mi, lim 1/512Mi), 2 PVCs / 6Gi. The numbers below leave Jett real
+# Baseline today: letta-code (req 100m/256Mi, lim 2/2Gi) + hermes + open-webui
+# (see 50-hermes.yaml / 60-open-webui.yaml). The numbers below leave Jett real
 # room to experiment (~a few small services) without letting a runaway loop eat
 # the cluster.
 ---
