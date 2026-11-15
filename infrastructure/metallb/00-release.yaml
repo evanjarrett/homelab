@@ -14,6 +14,9 @@ spec:
         namespace: flux-system
       version: 0.16.2
   interval: 2h
+  # The frr-k8s and speaker DaemonSets roll one node at a time across ~11
+  # nodes, which overruns Helm's default 5m wait and triggers a rollback.
+  timeout: 20m
   install:
     createNamespace: true
     remediation:
