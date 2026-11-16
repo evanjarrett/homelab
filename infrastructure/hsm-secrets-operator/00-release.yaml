@@ -93,9 +93,6 @@ spec:
           secretType: "kubernetes.io/dockerconfigjson"
           namespace: precinct-atlas
           syncInterval: 300
-        - name: letta-ws-token
-          namespace: agent
-          syncInterval: 300
         - name: hermes-api-key
           namespace: agent
           syncInterval: 300

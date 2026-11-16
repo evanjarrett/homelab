@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: agent
   labels:
-    # letta-code runs as the non-root `node` user (uid 1000), drops all caps,
+    # hermes (uid 10000) and open-webui run non-root, drop all caps,
     # RuntimeDefault seccomp -> restricted is satisfied.
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/audit: restricted

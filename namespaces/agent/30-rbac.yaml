@@ -1,13 +1,13 @@
-# Jett's hands inside its own namespace. The letta-code runtime pod runs as this
-# ServiceAccount so the agent can tool-call `kubectl` (a static binary on its
-# /data PVC) and explore / build things where it lives.
+# Jett's hands inside its own namespace. The Hermes pod (50-hermes.yaml) runs as
+# this ServiceAccount so the agent can tool-call `kubectl` (a static binary on its
+# PVC) and explore / build things where it lives.
 #
 # Scope: the built-in `edit` ClusterRole, bound namespace-locally — Jett can create
 # and manage workloads/services/PVCs/configmaps inside `agent` only. `edit` cannot
 # touch RBAC, ResourceQuotas, or LimitRanges, so Jett can't widen its own
 # permissions or raise its own caps (those live in 40-quota.yaml). Note `edit` can
-# read namespace secrets — both are Jett's own anyway (its ws token is already
-# mounted in the pod; atcr-login is the shared pull secret). Restricted PSA on the
+# read namespace secrets, which here include the Hermes API key and the Fastmail
+# token (tightening this is a known follow-up). Restricted PSA on the
 # namespace still applies to anything Jett launches.
 ---
 apiVersion: v1
