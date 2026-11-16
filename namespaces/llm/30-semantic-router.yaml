@@ -67,14 +67,10 @@ spec:
       tag: v0.4.0
     persistence:
       enabled: true
-      # Longhorn only has v2 (SPDK block) disks; the v1 `longhorn` class can't
-      # place replicas anywhere.
       storageClassName: longhorn-v2
       size: 10Gi
-    # v2 volumes only attach where a v2 instance-manager runs.
     nodeSelector:
       storage.longhorn-v2: 'true'
-    # mmBERT embedding (1.2GB fp32) runs on CPU for the complexity signal.
     resources:
       requests:
         cpu: 500m
@@ -93,7 +89,6 @@ spec:
         timeout: 300s
       global:
         router:
-          # list qwen/vision in /v1/models too, not just the auto names
           include_config_models_in_list: true
           auto_model_names:
           - auto
@@ -106,9 +101,6 @@ spec:
           tools:
             enabled: false
         model_catalog:
-          # Vela mmBERT embedding on CPU, bounded to 128 input tokens. Option for
-          # later: the remote vllm-embed endpoint (embedding_config.backend:
-          # openai_compatible + endpoint.base_url) to move this off the CPU.
           bindings:
             embedding:
               deployment: vela-embedding
@@ -121,8 +113,6 @@ spec:
               device: cpu
               precision: fp32
               input:
-                # 128: ~1.7s worst case on 2 CPUs (512 measured ~4.3s). For a
-                # long single user message this keeps only its head.
                 max_tokens: 128
                 overflow: truncate
           embeddings:
@@ -130,7 +120,6 @@ spec:
               embedding_config:
                 model_type: mmbert
                 preload_embeddings: true
-                # false = a representative ~440-token sample, never the full text
                 full_context: false
                 target_layer: 22
                 target_dimension: 768
@@ -157,7 +146,6 @@ spec:
             endpoint: vllm-vision.llm.svc.cluster.local:8080
             protocol: http
             weight: 1
-        # The privacy gate (shadow mode: answers from llama-server for now).
         - name: claude
           provider_model_id: claude
           api_format: openai
@@ -182,7 +170,8 @@ spec:
           - image_understanding
           - text
         - name: claude
-          description: 'Escalation target behind the privacy gate (shadow: served by qwen).'
+          description: 'Escalation target behind the privacy gate (shadow: served
+            by qwen).'
           context_window_size: 1000000
           modality: text
         signals:
@@ -214,7 +203,8 @@ spec:
             description: Easy vs hard household / homelab requests (latest user message).
             hard:
               candidates:
-              - debug why this kubernetes deployment keeps crashing and propose a fix
+              - debug why this kubernetes deployment keeps crashing and propose a
+                fix
               - write a program that parses these logs and reports anomalies
               - analyze the root cause of this failure
               - compare multiple design tradeoffs and recommend one
@@ -230,6 +220,15 @@ spec:
               - what time does the store close
               - translate this to spanish
               - answer briefly
+          conversation:
+          - name: has_tools
+            description: Request defines at least one tool (agent turns).
+            feature:
+              type: count
+              source:
+                type: tool_definition
+            predicate:
+              gte: 1
         decisions:
         - name: vision-request
           description: Image-bearing requests go to the B50 vision model.
@@ -276,7 +275,8 @@ spec:
           - model: claude
             use_reasoning: false
         - name: vision-fastlane
-          description: 'LIVE: easy and short -> B50 vision model (fast prefill).'
+          description: 'LIVE: easy, short, tool-free chats go to the B50 vision model
+            (agent turns stay on qwen).'
           priority: 400
           rules:
             operator: AND
@@ -285,6 +285,10 @@ spec:
               name: difficulty:easy
             - type: context
               name: fits_fastlane
+            - operator: NOT
+              conditions:
+              - type: conversation
+                name: has_tools
           modelRefs:
           - model: vision
             use_reasoning: false
@@ -297,20 +301,15 @@ spec:
           modelRefs:
           - model: qwen
             use_reasoning: false
-  # VictoriaMetrics scrapes annotated Services; the chart has no annotation knob.
   postRenderers:
   - kustomize:
       patches:
       - target:
           kind: Service
           name: semantic-router-metrics
-        patch: |
-          - op: add
-            path: /metadata/annotations/prometheus.io~1scrape
-            value: "true"
-          - op: add
-            path: /metadata/annotations/prometheus.io~1port
-            value: "9190"
+        patch: "- op: add\n  path: /metadata/annotations/prometheus.io~1scrape\n \
+          \ value: \"true\"\n- op: add\n  path: /metadata/annotations/prometheus.io~1port\n\
+          \  value: \"9190\"\n"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -353,14 +352,7 @@ spec:
         typed_config:
           '@type': type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor
           failure_mode_allow: true
-          # false: the router must not switch response-body processing on. Its
-          # strict stream decoder rejects llama.cpp's `timings` field
-          # ("upstream response JSON contains a non-canonical field"), which
-          # broke every streamed qwen request. Routing is request-side only.
           allow_mode_override: false
-          # Signals are bounded (see header); 15s caps any stall. With
-          # failure_mode_allow the request then continues without an
-          # x-selected-model header -> the HTTPRoute default (llama-server).
           message_timeout: 15s
           processing_mode:
             request_header_mode: SEND
