@@ -20,11 +20,17 @@
 #   - complexity and keywords see only the LATEST user message; complexity
 #     embeds the router's representative sample of it (head/middle/tail,
 #     ~440 tokens; embedding_config.full_context: false), which the embedding
-#     deployment then truncates to its first 128 tokens (input.max_tokens: 128,
-#     overflow: truncate). Measured with router-candle v0.4.0 in the router pod
-#     (2 CPU limit, routing preview): complexity 0.2-0.3s on short prompts,
-#     1.6-1.8s on 22K- and 140K-token inputs; with max_tokens 512 it was
-#     4.0-4.5s. Cost is bounded by the cap, not by prompt length.
+#     deployment then truncates to its first 64 tokens (input.max_tokens: 64,
+#     overflow: truncate). Cost is the CPU forward pass over those tokens
+#     (routing preview, 4 CPU limit, ~2.2 cores busy, never throttled): cap
+#     128 -> 1.4s, 64 -> 0.8s, 16 -> 0.35s for any message over the cap;
+#     ~0.25s for a 25-token message. More CPU does not help.
+#   - long messages are never judged: the difficulty composer requires the
+#     structure signal short_message (latest message <=1500 words, a regex
+#     count, ~16ms on 22K tokens). Without it a 22K-token "summarise this" was
+#     scored hard from its opening line. The score is still computed (v0.4.0
+#     has no conditional signal evaluation), only the match is suppressed, so
+#     long messages fall through to default-route.
 #   - context signals only count tokens (no model).
 #   - ext_proc message_timeout 15s: any stall falls through to llama-server.
 #
@@ -79,7 +85,7 @@ spec:
         cpu: '4'
         memory: 4Gi
     configMap:
-      applyValuesRevision: '5'
+      applyValuesRevision: '6'
     configOverride:
       version: v0.3
       listeners:
@@ -113,7 +119,7 @@ spec:
               device: cpu
               precision: fp32
               input:
-                max_tokens: 128
+                max_tokens: 64
                 overflow: truncate
           embeddings:
             semantic:
@@ -197,9 +203,25 @@ spec:
             - escalate to claude
             - think harder
             - deep dive
+          structure:
+          - name: short_message
+            description: Latest user message is at most ~1500 words (~2K tokens).
+            feature:
+              type: count
+              source:
+                type: regex
+                pattern: \S+
+            predicate:
+              lte: 1500
           complexity:
           - name: difficulty
             threshold: 0.1
+            # Only judge messages short enough to judge; see the header.
+            composer:
+              operator: AND
+              conditions:
+              - type: structure
+                name: short_message
             description: Easy vs hard household / homelab requests (latest user message).
             hard:
               candidates:
