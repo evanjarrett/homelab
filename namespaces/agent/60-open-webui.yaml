@@ -134,6 +134,14 @@ spec:
               value: "$(HERMES_API_KEY);none"
             - name: DEFAULT_MODELS
               value: jett
+            # Sends X-OpenWebUI-Chat-Id (plus X-OpenWebUI-User-Name/-Id/-Email/-Role)
+            # to both connections. The privacy gate (../llm/40-privacy-gate.yaml)
+            # keys its taint store on the chat id (hashed) and never forwards
+            # client headers upstream. Plain env (env.py), not PersistentConfig:
+            # takes effect on restart. Chat-id-only alternative: a per-connection
+            # header {"X-OpenWebUI-Chat-Id": "{{CHAT_ID}}"} in Admin > Connections.
+            - name: ENABLE_FORWARD_USER_INFO_HEADERS
+              value: "true"
             # Titles/tags/follow-ups go to qwen directly instead of spinning up a
             # Hermes agent run (and a Hermes session) per background task.
             - name: TASK_MODEL_EXTERNAL

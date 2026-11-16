@@ -1,0 +1,7 @@
+# GENERATED from privacy-gate/{privacy_gate,rules}.py (header: privacy-gate/configmap-header.txt).
+# Do not edit here. Regenerate after changing the source, from namespaces/llm/:
+#   kubectl create configmap privacy-gate-code -n llm \
+#     --from-file=privacy-gate/privacy_gate.py --from-file=privacy-gate/rules.py \
+#     --dry-run=client -o yaml | cat privacy-gate/configmap-header.txt - > 41-privacy-gate-code.yaml
+# then `kubectl -n llm rollout restart deploy/privacy-gate` once Flux has applied it
+# (the pod reads the code at start; a ConfigMap change alone does not restart it).

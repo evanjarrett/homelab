@@ -4,7 +4,29 @@
 #                 |  router classifies the request and sets x-selected-model
 #                 +-- x-selected-model: qwen   -> llama-server (Strix, llama.cpp)
 #                 +-- x-selected-model: vision -> vllm-vision  (B50, vLLM)
-#                 +-- no header (router down; failure_mode_allow) -> llama-server
+#                 +-- x-selected-model: claude -> privacy-gate (40-privacy-gate.yaml)
+#                 +-- no header (router down/slow; failure_mode_allow) -> llama-server
+#
+# `auto` decisions (priority): image -> vision (1000); escalate keywords ->
+# claude (700); >=128K tokens -> claude (600); complexity hard -> claude (500);
+# complexity easy AND <=24K tokens -> vision fast lane, LIVE (400); else qwen (1).
+# `claude` is the privacy gate in SHADOW mode: it re-checks the whole
+# conversation for personal data and, today, always answers from llama-server
+# (response header x-privacy-gate says what it would have done). No router-side
+# PII signal: the gate does PII.
+#
+# Bounded classifiers (the reverted 29e926b ran PII over the full history and
+# stalled 22K-token prompts past the 300s ext_proc timeout):
+#   - complexity and keywords see only the LATEST user message; complexity
+#     embeds the router's representative sample of it (head/middle/tail,
+#     ~440 tokens; embedding_config.full_context: false), which the embedding
+#     deployment then truncates to its first 128 tokens (input.max_tokens: 128,
+#     overflow: truncate). Measured with router-candle v0.4.0 in the router pod
+#     (2 CPU limit, routing preview): complexity 0.2-0.3s on short prompts,
+#     1.6-1.8s on 22K- and 140K-token inputs; with max_tokens 512 it was
+#     4.0-4.5s. Cost is bounded by the cap, not by prompt length.
+#   - context signals only count tokens (no model).
+#   - ext_proc message_timeout 15s: any stall falls through to llama-server.
 #
 # Endpoint: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1 in-cluster,
 # https://llm.j5t.io/v1 on the LAN (route in 10-httproute.yaml).
@@ -52,15 +74,16 @@ spec:
     # v2 volumes only attach where a v2 instance-manager runs.
     nodeSelector:
       storage.longhorn-v2: 'true'
+    # mmBERT embedding (1.2GB fp32) runs on CPU for the complexity signal.
     resources:
       requests:
-        cpu: 250m
-        memory: 1Gi
+        cpu: 500m
+        memory: 2Gi
       limits:
-        cpu: '2'
+        cpu: '4'
         memory: 4Gi
     configMap:
-      applyValuesRevision: '2'
+      applyValuesRevision: '5'
     configOverride:
       version: v0.3
       listeners:
@@ -82,6 +105,36 @@ spec:
         integrations:
           tools:
             enabled: false
+        model_catalog:
+          # Vela mmBERT embedding on CPU, bounded to 128 input tokens. Option for
+          # later: the remote vllm-embed endpoint (embedding_config.backend:
+          # openai_compatible + endpoint.base_url) to move this off the CPU.
+          bindings:
+            embedding:
+              deployment: vela-embedding
+              contract: embedding.v1
+              adapter: mmbert
+          deployments:
+            vela-embedding:
+              artifact: models/Vela-1.0-Encoder-307M-Embedding
+              provider: candle
+              device: cpu
+              precision: fp32
+              input:
+                # 128: ~1.7s worst case on 2 CPUs (512 measured ~4.3s). For a
+                # long single user message this keeps only its head.
+                max_tokens: 128
+                overflow: truncate
+          embeddings:
+            semantic:
+              embedding_config:
+                model_type: mmbert
+                preload_embeddings: true
+                # false = a representative ~440-token sample, never the full text
+                full_context: false
+                target_layer: 22
+                target_dimension: 768
+                min_score_threshold: 0.45
       providers:
         defaults:
           model: qwen
@@ -104,6 +157,16 @@ spec:
             endpoint: vllm-vision.llm.svc.cluster.local:8080
             protocol: http
             weight: 1
+        # The privacy gate (shadow mode: answers from llama-server for now).
+        - name: claude
+          provider_model_id: claude
+          api_format: openai
+          backend_refs:
+          - name: privacy-gate
+            provider: vllm
+            endpoint: privacy-gate.llm.svc.cluster.local:8080
+            protocol: http
+            weight: 1
       routing:
         modelCards:
         - name: qwen
@@ -118,11 +181,55 @@ spec:
           - vision
           - image_understanding
           - text
+        - name: claude
+          description: 'Escalation target behind the privacy gate (shadow: served by qwen).'
+          context_window_size: 1000000
+          modality: text
         signals:
           input_modality:
           - name: image_input
             description: Request contains at least one image content part.
             modality: image
+          context:
+          - name: fits_fastlane
+            min_tokens: '0'
+            max_tokens: 24K
+            description: Fits the B50 vision model's 32K window with room to answer.
+          - name: beyond_local
+            min_tokens: 128K
+            description: Long enough that local models get slow or run out of window.
+          keywords:
+          - name: escalate_request
+            operator: OR
+            case_sensitive: false
+            keywords:
+            - use claude
+            - ask claude
+            - escalate to claude
+            - think harder
+            - deep dive
+          complexity:
+          - name: difficulty
+            threshold: 0.1
+            description: Easy vs hard household / homelab requests (latest user message).
+            hard:
+              candidates:
+              - debug why this kubernetes deployment keeps crashing and propose a fix
+              - write a program that parses these logs and reports anomalies
+              - analyze the root cause of this failure
+              - compare multiple design tradeoffs and recommend one
+              - plan a multi-step migration with rollback steps
+              - refactor this code and explain the changes
+              - solve this step by step and show your reasoning
+            easy:
+              candidates:
+              - what's the weather like today
+              - summarize this email briefly
+              - give this chat a short title
+              - rewrite this sentence to sound friendlier
+              - what time does the store close
+              - translate this to spanish
+              - answer briefly
         decisions:
         - name: vision-request
           description: Image-bearing requests go to the B50 vision model.
@@ -135,6 +242,52 @@ spec:
           modelRefs:
           - model: vision
             use_reasoning: false
+        - name: claude-explicit
+          description: User asked to escalate -> privacy gate (Claude once enforced).
+          priority: 700
+          rules:
+            operator: AND
+            conditions:
+            - type: keyword
+              name: escalate_request
+          modelRefs:
+          - model: claude
+            use_reasoning: false
+        - name: claude-long
+          description: '>=128K tokens -> privacy gate (Claude once enforced).'
+          priority: 600
+          rules:
+            operator: AND
+            conditions:
+            - type: context
+              name: beyond_local
+          modelRefs:
+          - model: claude
+            use_reasoning: false
+        - name: claude-hard
+          description: Hard request -> privacy gate (Claude once enforced).
+          priority: 500
+          rules:
+            operator: AND
+            conditions:
+            - type: complexity
+              name: difficulty:hard
+          modelRefs:
+          - model: claude
+            use_reasoning: false
+        - name: vision-fastlane
+          description: 'LIVE: easy and short -> B50 vision model (fast prefill).'
+          priority: 400
+          rules:
+            operator: AND
+            conditions:
+            - type: complexity
+              name: difficulty:easy
+            - type: context
+              name: fits_fastlane
+          modelRefs:
+          - model: vision
+            use_reasoning: false
         - name: default-route
           description: Everything else goes to the main model.
           priority: 1
@@ -144,6 +297,20 @@ spec:
           modelRefs:
           - model: qwen
             use_reasoning: false
+  # VictoriaMetrics scrapes annotated Services; the chart has no annotation knob.
+  postRenderers:
+  - kustomize:
+      patches:
+      - target:
+          kind: Service
+          name: semantic-router-metrics
+        patch: |
+          - op: add
+            path: /metadata/annotations/prometheus.io~1scrape
+            value: "true"
+          - op: add
+            path: /metadata/annotations/prometheus.io~1port
+            value: "9190"
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -191,7 +358,10 @@ spec:
           # ("upstream response JSON contains a non-canonical field"), which
           # broke every streamed qwen request. Routing is request-side only.
           allow_mode_override: false
-          message_timeout: 300s
+          # Signals are bounded (see header); 15s caps any stall. With
+          # failure_mode_allow the request then continues without an
+          # x-selected-model header -> the HTTPRoute default (llama-server).
+          message_timeout: 15s
           processing_mode:
             request_header_mode: SEND
             response_header_mode: SEND
@@ -249,6 +419,19 @@ spec:
       - type: Exact
         name: x-selected-model
         value: vision
+  - backendRefs:
+    - name: privacy-gate
+      port: 8080
+    timeouts:
+      request: 600s
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+      headers:
+      - type: Exact
+        name: x-selected-model
+        value: claude
   - backendRefs:
     - name: llama-server
       port: 8080

@@ -1,0 +1,7 @@
+# Privacy gate SOURCES, not manifests. Flux's auto-generated kustomization for ./namespaces walks
+# every *.yaml; a directory holding a kustomization.yaml is added as one kustomize resource and
+# not descended into. This one renders nothing: what deploys is the generated ConfigMap
+# ../41-privacy-gate-code.yaml (README: regenerate) plus ../40-privacy-gate.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

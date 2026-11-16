@@ -1,8 +1,13 @@
 # Hermes Agent (NousResearch/hermes-agent) — the successor to the Letta-based Jett.
 #
-#   - Reasoning -> vLLM Semantic Router (model "auto": images -> vision, else qwen)
-#     at http://llm-gateway-istio.llm.svc.cluster.local:8080/v1, configured as a
+#   - Reasoning -> vLLM Semantic Router (model "auto"; decisions in
+#     ../llm/30-semantic-router.yaml) at
+#     http://llm-gateway-istio.llm.svc.cluster.local:8080/v1, configured as a
 #     `custom` OpenAI-compatible provider in config.yaml (hermes-config below).
+#     Every request carries x-conversation-id (Hermes' rotation-stable session
+#     key, via providers.llm-gateway.session_affinity_header) so the privacy gate
+#     (../llm/40-privacy-gate.yaml) can keep a conversation local once it saw
+#     personal data.
 #   - Runs `hermes gateway run` as the long-lived process. The gateway hosts the
 #     OpenAI-compatible API server on 0.0.0.0:8642 (Service `hermes`), which Open
 #     WebUI (60-open-webui.yaml) uses as its main "agent" connection, plus any
@@ -99,10 +104,19 @@ data:
       base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
       # The router has no auth; Hermes still wants a non-empty key.
       api_key: none
-      # qwen (llama.cpp) has ~262K per slot. Requests routed to `vision`
-      # (32K) are image turns; very long conversations with images will
-      # overflow it.
+      # qwen (llama.cpp) has ~262K per slot. The router sends image turns and
+      # easy turns under 24K tokens to `vision` (32K); very long conversations
+      # with images will overflow it.
       context_length: 262144
+    # Same URL as model.base_url: Hermes matches provider entries to the active
+    # endpoint by URL, so this only adds the opt-in conversation header (its
+    # rotation-stable conversation key, also on auxiliary calls). The privacy
+    # gate hashes it; it never leaves the cluster.
+    providers:
+      llm-gateway:
+        base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
+        api_key: none
+        session_affinity_header: x-conversation-id
     terminal:
       backend: local
       cwd: /opt/data/hermes/workspace

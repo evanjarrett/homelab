@@ -1,0 +1,168 @@
+# Privacy gate: the semantic router's `claude` model (30-semantic-router.yaml).
+#
+#   router decides "escalate" -> x-selected-model: claude -> privacy-gate:8080
+#     sensitive (rules / vision classifier / tainted / any error) -> llama-server (local)
+#     clean -> SHADOW (GATE_MODE=shadow): logged + counted as would_escalate,
+#              still served by llama-server. Nothing is sent to Anthropic.
+#
+# Code: ConfigMap privacy-gate-code (41-privacy-gate-code.yaml, GENERATED from
+# privacy-gate/; see privacy-gate/README.md), run on a stock python image.
+# State: SQLite taint store on a 1Gi longhorn-v2 PVC (hashes + reason codes only).
+# Metrics: /metrics on :8080 (Service annotated for VictoriaMetrics).
+# Enforce mode is NOT wired (README); it also refuses to start without the
+# optional Secret anthropic-api-key (key ANTHROPIC_API_KEY).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: privacy-gate-data
+  namespace: llm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn-v2
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privacy-gate
+  namespace: llm
+spec:
+  replicas: 1
+  # Single SQLite writer on an RWO volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: privacy-gate
+  template:
+    metadata:
+      labels:
+        app: privacy-gate
+    spec:
+      # v2 (SPDK) volumes only attach where a v2 instance-manager runs. The
+      # python image is multi-arch, so the arm64 v2 nodes are fine too.
+      nodeSelector:
+        storage.longhorn-v2: "true"
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gate
+          image: docker.io/library/python:3.13.18-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-u", "/app/privacy_gate.py"]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: GATE_MODE
+              value: shadow
+            - name: GATE_DB_PATH
+              value: /data/privacy-gate.sqlite3
+            - name: GATE_TAINT_TTL_DAYS
+              value: "30"
+            # First present header wins; else a fingerprint (README).
+            #   x-conversation-id   Hermes (providers.llm-gateway.session_affinity_header)
+            #   x-openwebui-chat-id Open WebUI (ENABLE_FORWARD_USER_INFO_HEADERS)
+            - name: GATE_ID_HEADERS
+              value: x-conversation-id,x-openwebui-chat-id,x-session-id
+            - name: GATE_LOCAL_URL
+              value: http://llama-server.llm.svc.cluster.local:8080
+            - name: GATE_LOCAL_MODEL
+              value: qwen3.8-27b
+            # Classifier calls vllm-vision directly (never the router: no loops).
+            - name: GATE_CLASSIFIER_URL
+              value: http://vllm-vision.llm.svc.cluster.local:8080
+            - name: GATE_CLASSIFIER_MODEL
+              value: vision
+            - name: GATE_CLASSIFIER_TIMEOUT
+              value: "20"
+            - name: GATE_CLASSIFIER_BUDGET
+              value: "45"
+            - name: GATE_CLASSIFIER_CHUNK_TOKENS
+              value: "12000"
+            - name: GATE_CLASSIFIER_MAX_CHUNKS
+              value: "4"
+            # Comma list of rule codes to turn off (e.g. private_ip). Empty = all on.
+            - name: GATE_RULES_DISABLED
+              value: ""
+            # Enforce-mode stub only (not wired).
+            - name: ANTHROPIC_MODEL
+              value: claude-opus-5-5
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: anthropic-api-key
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: code
+              mountPath: /app
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: code
+          configMap:
+            name: privacy-gate-code
+        - name: data
+          persistentVolumeClaim:
+            claimName: privacy-gate-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: privacy-gate
+  namespace: llm
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: /metrics
+spec:
+  selector:
+    app: privacy-gate
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
