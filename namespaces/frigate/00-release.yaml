@@ -68,7 +68,7 @@ spec:
     strategy:
       type: Recreate
     image:
-      tag: 0.18.2 # renovate: image=ghcr.io/blakeblackshear/frigate
+      tag: 0.18.3 # renovate: image=ghcr.io/blakeblackshear/frigate
     envFromSecrets:
       - frigate
     # Corals are provided solely by the generic-device-plugin via the

@@ -63,7 +63,7 @@ spec:
         # file doesn't exist on first boot. Pre-create it (owned by 82:82 via
         # the pod securityContext) so AUTORUN's `php artisan migrate` succeeds.
         - name: init-sqlite
-          image: ghcr.io/usetrmnl/larapaper:0.47.0
+          image: ghcr.io/usetrmnl/larapaper:0.48.0
           command: ["sh", "-c", "touch /db/database.sqlite"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -74,7 +74,7 @@ spec:
               mountPath: /db
       containers:
         - name: larapaper
-          image: ghcr.io/usetrmnl/larapaper:0.47.0
+          image: ghcr.io/usetrmnl/larapaper:0.48.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -167,7 +167,7 @@ spec:
         # plugin->current_image to the device itself, so this never touches
         # device->current_screen_image.
         - name: refresher
-          image: ghcr.io/usetrmnl/larapaper:0.47.0
+          image: ghcr.io/usetrmnl/larapaper:0.48.0
           imagePullPolicy: IfNotPresent
           command:
             - sh
