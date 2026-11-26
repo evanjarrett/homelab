@@ -14,12 +14,18 @@ spec:
         namespace: flux-system
       version: 5.2.0
   interval: 2h
+  # The DaemonSet rolls one pod per node; across 11 nodes that outran Helm's
+  # default 5m wait, so an otherwise-healthy upgrade timed out and Stalled the
+  # release. Give the roll room, and let upgrades self-heal rather than stall.
+  timeout: 15m
   install:
     crds: Create
     remediation:
       retries: 3
   upgrade:
     crds: CreateReplace
+    remediation:
+      retries: 3
   values:
     # Scraped by vmagent's dedicated "node-exporter" job (service label match);
     # no prometheus.io annotations needed.
