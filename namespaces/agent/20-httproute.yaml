@@ -17,3 +17,23 @@ spec:
     - backendRefs:
         - name: open-webui
           port: 8080
+---
+# Hermes's own web dashboard (sidecar in 50-hermes.yaml) at jett.j5t.io —
+# native session view (tool calls, thinking). Internal-only *.j5t.io; TLS ends
+# at the gateway with the wildcard cert. Basic auth from the hermes-dashboard
+# Secret; until that is provisioned the sidecar idles and this route 502s.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jett-dashboard-tls-route
+  namespace: agent
+spec:
+  parentRefs:
+    - name: jarrett-net
+      namespace: gateway
+  hostnames:
+    - jett.j5t.io
+  rules:
+    - backendRefs:
+        - name: hermes
+          port: 9119

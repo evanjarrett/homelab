@@ -99,6 +99,12 @@ spec:
         - name: hermes-fastmail
           namespace: agent
           syncInterval: 300
+        # Hermes dashboard (jett.j5t.io) basic-auth. Keys:
+        # HERMES_DASHBOARD_BASIC_AUTH_USERNAME / _PASSWORD / _SECRET.
+        # Set out of band: kubectl hsm create hermes-dashboard -n agent --interactive
+        - name: hermes-dashboard
+          namespace: agent
+          syncInterval: 300
         - name: grafana-login
           namespace: monitoring
           syncInterval: 300

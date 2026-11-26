@@ -380,6 +380,71 @@ spec:
             # s6/XDG runtime dirs the stage2 hook expects to create.
             - name: tmp
               mountPath: /tmp
+        # Hermes's own web UI (`hermes dashboard`) at jett.j5t.io — sessions,
+        # tool calls and thinking rendered natively, which Open WebUI (OpenAI-
+        # compat) can't show. A sidecar, not a second pod: the SQLite state is on
+        # one RWO volume, and a second pod sharing it risks a Longhorn attach
+        # deadlock; one pod = one attachment. The supervise loop keeps THIS
+        # container running no matter what, so the pod stays Ready and jett's
+        # gateway endpoint (8642) never drops because the dashboard is down: with
+        # no hermes-dashboard Secret it idles, and if the UI exits it retries.
+        # Auth is basic auth from that Secret (HERMES_DASHBOARD_BASIC_AUTH_* —
+        # env wins over config); the public bind + public_url engages the sign-in.
+        - name: dashboard
+          image: docker.io/nousresearch/hermes-agent:v0.23.4@sha256:ef0650d523ee1b5ab32c779acabc446d9936869a9932591553688a62bcf0c42f
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              # Never exit: the pod's readiness (hence jett's endpoint) is tied to
+              # every container running, so idle/retry instead of crashing.
+              while true; do
+                if [ ! -f "$HERMES_HOME/config.yaml" ]; then
+                  echo "[dash] waiting for the gateway to seed $HERMES_HOME/config.yaml"; sleep 5; continue
+                fi
+                if [ -z "$HERMES_DASHBOARD_BASIC_AUTH_PASSWORD" ] && [ -z "$HERMES_DASHBOARD_BASIC_AUTH_PASSWORD_HASH" ]; then
+                  echo "[dash] hermes-dashboard Secret absent; idling. Provision it:"
+                  echo "[dash]   kubectl hsm create hermes-dashboard -n agent --interactive"
+                  echo "[dash] (keys: HERMES_DASHBOARD_BASIC_AUTH_USERNAME/_PASSWORD/_SECRET) then restart this pod."
+                  sleep 30; continue
+                fi
+                echo "[dash] starting Hermes dashboard on :9119"
+                /opt/hermes/.venv/bin/hermes dashboard --skip-build --host 0.0.0.0 --port 9119 --no-open \
+                  || echo "[dash] dashboard exited ($?); retrying in 30s"
+                sleep 30
+              done
+          env:
+            - name: HERMES_HOME
+              value: /opt/data/hermes
+            # The address the reverse proxy serves the UI at; with a non-loopback
+            # bind this engages the sign-in (so the UI is never open on the LAN).
+            - name: HERMES_DASHBOARD_PUBLIC_URL
+              value: https://jett.j5t.io
+          envFrom:
+            # HERMES_DASHBOARD_BASIC_AUTH_USERNAME / _PASSWORD / _SECRET.
+            # Absent -> the loop above idles instead of crashing the pod.
+            - secretRef:
+                name: hermes-dashboard
+                optional: true
+          ports:
+            - name: dash
+              containerPort: 9119
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+            - name: dashboard-tmp
+              mountPath: /tmp
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -393,6 +458,9 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 2Gi
+        - name: dashboard-tmp
+          emptyDir:
+            sizeLimit: 1Gi
 ---
 apiVersion: v1
 kind: Service
@@ -406,3 +474,6 @@ spec:
     - name: http-api
       port: 8642
       targetPort: api
+    - name: http-dash
+      port: 9119
+      targetPort: dash
