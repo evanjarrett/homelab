@@ -216,6 +216,12 @@ spec:
         enabled: true
       ffmpeg:
         hwaccel_args: preset-vaapi
+        # Both cameras are read from go2rtc's restream. The default
+        # preset-rtsp-generic adds -use_wallclock_as_timestamps, which stamps
+        # frames by arrival time: the burst at each segment start gets frames
+        # <1ms apart, the VOD packager reports FRAME-RATE in the hundreds or
+        # thousands, and iOS refuses to play the HLS clip.
+        input_args: preset-rtsp-restream
         output_args:
           record: preset-record-generic-audio-copy
       cameras:
