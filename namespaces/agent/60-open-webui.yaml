@@ -132,6 +132,13 @@ spec:
               value: "http://hermes.agent.svc.cluster.local:8642/v1;http://llm-gateway-istio.llm.svc.cluster.local:8080/v1"
             - name: OPENAI_API_KEYS
               value: "$(HERMES_API_KEY);none"
+            # Hermes over the Responses API: its /v1/responses stream carries real
+            # function_call/function_call_output items, which Open WebUI renders as
+            # tool calls. Over Chat Completions Hermes only sends custom
+            # `hermes.tool.progress` SSE events, which Open WebUI drops. First-boot
+            # only (persistent config); the live value is Admin > Connections.
+            - name: OPENAI_API_CONFIGS
+              value: '{"0":{"enable":true,"api_type":"responses"},"1":{"enable":true}}'
             - name: DEFAULT_MODELS
               value: jett
             # Sends X-OpenWebUI-Chat-Id (plus X-OpenWebUI-User-Name/-Id/-Email/-Role)
