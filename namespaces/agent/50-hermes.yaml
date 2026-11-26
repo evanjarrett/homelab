@@ -117,16 +117,22 @@ data:
     #   explicit auxiliary.vision backend (the image alone -> a text caption),
     #   then the main turn goes to the router as TEXT. No image reaches the
     #   router's `auto` path, so the turn routes to qwen's 262K window and reasons
-    #   over the caption. vision_analyze names model `vision`, which the router
-    #   forwards straight to vllm-vision with a small, image-only context that
-    #   fits 32K. `vision_analyze` also stays available as an on-demand tool.
+    #   over the caption. `vision_analyze` also stays available as an on-demand tool.
+    #
+    #   The caption backend points DIRECTLY at vllm-vision, not the gateway: the
+    #   gateway's ext_proc classifies every request with request_body_mode:
+    #   BUFFERED, whose ~1 MiB buffer 413'd a 4.4 MB (base64) phone photo before it
+    #   reached the model (vLLM itself accepts it fine). The caption call always
+    #   goes to the vision model, so it needs neither routing nor the privacy gate,
+    #   and the image stays fully in-cluster. The served model name there is
+    #   `vision` (SERVED_NAME in namespaces/llm/20-vllm-b50.yaml).
     agent:
       image_input_mode: text
     auxiliary:
       vision:
         provider: custom
         model: vision
-        base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
+        base_url: http://vllm-vision.llm.svc.cluster.local:8080/v1
         api_key: none
     # Same URL as model.base_url: Hermes matches provider entries to the active
     # endpoint by URL, so this only adds the opt-in conversation header (its
