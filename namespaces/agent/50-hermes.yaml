@@ -104,10 +104,30 @@ data:
       base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
       # The router has no auth; Hermes still wants a non-empty key.
       api_key: none
-      # qwen (llama.cpp) has ~262K per slot. The router sends image turns and
-      # easy turns under 24K tokens to `vision` (32K); very long conversations
-      # with images will overflow it.
+      # qwen (llama.cpp) has ~262K per slot.
       context_length: 262144
+    # Image handling: caption-then-reason, not pass-the-image-through.
+    #   Before: image_input_mode defaulted to `auto`; Hermes saw the router's
+    #   `auto` model as vision-capable, attached the image natively, and the
+    #   router (image_input, priority 1000) force-pinned the WHOLE conversation +
+    #   image to the B50 vision model (32K). A long agent thread overflowed 32K,
+    #   the image got truncated out, and the 9B confidently hallucinated a
+    #   different screen (invented an Android build fingerprint + MAC).
+    #   Now: `text` mode runs the `vision_analyze` tool up front against an
+    #   explicit auxiliary.vision backend (the image alone -> a text caption),
+    #   then the main turn goes to the router as TEXT. No image reaches the
+    #   router's `auto` path, so the turn routes to qwen's 262K window and reasons
+    #   over the caption. vision_analyze names model `vision`, which the router
+    #   forwards straight to vllm-vision with a small, image-only context that
+    #   fits 32K. `vision_analyze` also stays available as an on-demand tool.
+    agent:
+      image_input_mode: text
+    auxiliary:
+      vision:
+        provider: custom
+        model: vision
+        base_url: http://llm-gateway-istio.llm.svc.cluster.local:8080/v1
+        api_key: none
     # Same URL as model.base_url: Hermes matches provider entries to the active
     # endpoint by URL, so this only adds the opt-in conversation header (its
     # rotation-stable conversation key, also on auxiliary calls). The privacy

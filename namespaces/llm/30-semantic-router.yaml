@@ -7,9 +7,16 @@
 #                 +-- x-selected-model: claude -> privacy-gate (40-privacy-gate.yaml)
 #                 +-- no header (router down/slow; failure_mode_allow) -> llama-server
 #
-# `auto` decisions (priority): image -> vision (1000); escalate keywords ->
-# claude (700); >=128K tokens -> claude (600); complexity hard -> claude (500);
-# complexity easy AND <=24K tokens -> vision fast lane, LIVE (400); else qwen (1).
+# `auto` decisions (priority): image AND <=24K tokens -> vision (1000); escalate
+# keywords -> claude (700); >=128K tokens -> claude (600); complexity hard ->
+# claude (500); complexity easy AND <=24K tokens -> vision fast lane, LIVE (400);
+# else qwen (1). The image route is size-guarded: an image turn that does not fit
+# the B50's 32K window must NOT be force-pinned to it (it silently truncated the
+# image out and the model hallucinated a different screen). Oversized image turns
+# fall through to qwen instead. The real home for big image turns is Hermes'
+# `vision_analyze` tool (agent captions the image, then reasons over the text on
+# qwen's 262K window), so agent turns should arrive here text-only; see
+# namespaces/agent/50-hermes.yaml (agent.image_input_mode: text + auxiliary.vision).
 # `claude` is the privacy gate in SHADOW mode: it re-checks the whole
 # conversation for personal data and, today, always answers from llama-server
 # (response header x-privacy-gate says what it would have done). No router-side
@@ -85,7 +92,7 @@ spec:
         cpu: '4'
         memory: 4Gi
     configMap:
-      applyValuesRevision: '6'
+      applyValuesRevision: '7'
     configOverride:
       version: v0.3
       listeners:
@@ -253,13 +260,18 @@ spec:
               gte: 1
         decisions:
         - name: vision-request
-          description: Image-bearing requests go to the B50 vision model.
+          description: Image-bearing requests that fit the B50's 32K window go to
+            the vision model; oversized ones fall through (they truncated the image
+            out and hallucinated). Agent turns should arrive text-only (Hermes
+            captions via vision_analyze), so this mainly serves direct image chats.
           priority: 1000
           rules:
             operator: AND
             conditions:
             - type: input_modality
               name: image_input
+            - type: context
+              name: fits_fastlane
           modelRefs:
           - model: vision
             use_reasoning: false
