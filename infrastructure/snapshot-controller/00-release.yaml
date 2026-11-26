@@ -20,7 +20,7 @@ spec:
         kind: HelmRepository
         name: piraeus-helmrepo
         namespace: flux-system
-      version: 5.4.0
+      version: 5.4.1
   interval: 2h
   install:
     createNamespace: false
