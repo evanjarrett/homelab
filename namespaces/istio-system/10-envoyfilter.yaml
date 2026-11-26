@@ -1,3 +1,27 @@
+# Request-body size limits on the Envoy gateways.
+#
+# Two scopes:
+#   * External (jarrett-net, the internet-facing Gateway-API gateway at
+#     192.168.3.1 / MetalLB): hard-capped at 100 MB, matching what Cloudflare
+#     accepts in front of it, so nothing larger is buffered or forwarded.
+#   * Internal (llm-gateway, ClusterIP): no practical limit — see
+#     namespaces/llm/31-gateway-buffer.yaml. In-cluster callers (Hermes, Open
+#     WebUI) push multi-MB images through its ext_proc, which classifies with
+#     request_body_mode: BUFFERED and so is bounded by per_connection_buffer_
+#     limit_bytes; the 1 MiB default 413'd real phone photos.
+#
+# This EnvoyFilter lives in the istio root namespace (istio-system), so its
+# workloadSelector matches mesh-wide; it targets ONLY the external gateway's
+# pods. It used to select `istio: ingressgateway` — the legacy ingress gateway,
+# which has no LoadBalancer IP and no routes (dead), so the cap never applied to
+# real traffic. Now it selects the Gateway-API gateway by name.
+#
+# per_connection_buffer_limit_bytes raises the listener's connection buffer so
+# the 100 MB buffer filter can actually hold a request that big (the 1 MiB
+# default would otherwise bound it). The http.buffer filter fully buffers each
+# request body up to the max and rejects anything larger with 413 — it does not
+# affect response streaming (SSE / chat completions) or WebSocket upgrades,
+# which carry no request body.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -6,8 +30,15 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      istio: ingressgateway
+      gateway.networking.k8s.io/gateway-name: jarrett-net
   configPatches:
+    - applyTo: LISTENER
+      match:
+        context: GATEWAY
+      patch:
+        operation: MERGE
+        value:
+          per_connection_buffer_limit_bytes: 100000000
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY

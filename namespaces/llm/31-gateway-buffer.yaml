@@ -1,0 +1,33 @@
+# Internal LLM gateway: no practical request-body size limit.
+#
+# llm-gateway (ClusterIP) routes in-cluster LLM traffic and runs the semantic-
+# router ext_proc (30-semantic-router.yaml), which classifies every request with
+# request_body_mode: BUFFERED. Buffered ext_proc holds the whole body, bounded by
+# the listener's per_connection_buffer_limit_bytes — whose Envoy default is 1 MiB.
+# That 413'd real phone photos (a 4.4 MB base64 image) sent to the vision model
+# before they reached it. Internal callers (Hermes, Open WebUI) are trusted and
+# their payloads are bounded by the clients, so lift the ceiling well past any
+# realistic image/context. This is a ceiling, not a reservation: Envoy only uses
+# memory for the bytes actually sent.
+#
+# This EnvoyFilter is in the llm namespace (not the istio root ns), so it applies
+# only to workloads here; the selector pins it to the llm-gateway pods.
+# External size limits live on jarrett-net — see
+# namespaces/istio-system/10-envoyfilter.yaml.
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: llm-gateway-buffer
+  namespace: llm
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: llm-gateway
+  configPatches:
+    - applyTo: LISTENER
+      match:
+        context: GATEWAY
+      patch:
+        operation: MERGE
+        value:
+          per_connection_buffer_limit_bytes: 1073741824
