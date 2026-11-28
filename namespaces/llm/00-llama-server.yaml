@@ -108,6 +108,22 @@ spec:
             - "2"
             - "--cache-ram"             # host-RAM prompt cache OFF: with MTP it crashes on the 2nd request
             - "0"                       #   (GGML_ASSERT tensor not allocated in state_seq_get_data, build 12418)
+            # Sampling: Qwen's non-thinking preset (reasoning is off by default, every
+            # router decision has use_reasoning: false). Without these the GGUF's
+            # thinking-mode defaults applied (temp 1.0, top_p 0.95, presence 0), and
+            # with no presence penalty follow-ups re-emitted the previous long answer.
+            # Per-request values from clients still override. If HA tool-call JSON or
+            # code output degrades, drop presence-penalty to 1.0.
+            - "--temp"
+            - "0.7"
+            - "--top-p"
+            - "0.8"
+            - "--top-k"
+            - "20"
+            - "--min-p"
+            - "0"
+            - "--presence-penalty"
+            - "1.5"
             - "-c"
             - "1048576"                 # total KV budget = 4 slots x 262144 native ctx
             - "-np"
